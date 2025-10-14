@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Script para publicar JonjubNet.Logging a NuGet.org
+API_KEY="${NUGET_API_KEY}"
+VERSION="1.0.0"
+CONFIGURATION="Release"
+
+# Verificar que la API key esté configurada
+if [ -z "$API_KEY" ]; then
+    echo "Error: No se encontró la API key de NuGet."
+    echo "Configura la variable de entorno NUGET_API_KEY:"
+    echo "  export NUGET_API_KEY='tu-api-key-aqui'"
+    echo "  ./publish-package.sh"
+    echo ""
+    echo "O pásala como parámetro:"
+    echo "  NUGET_API_KEY='tu-api-key-aqui' ./publish-package.sh"
+    exit 1
+fi
+
+echo "Publicando JonjubNet.Logging v$VERSION a NuGet.org"
+
+# Verificar que el paquete existe
+PACKAGE_FILE="./packages/JonjubNet.Logging.$VERSION.nupkg"
+if [ ! -f "$PACKAGE_FILE" ]; then
+    echo "Error: No se encontró el paquete $PACKAGE_FILE"
+    echo "Ejecuta primero: dotnet pack --configuration $CONFIGURATION --output ./packages"
+    exit 1
+fi
+
+# Mostrar información del paquete
+echo "Archivo del paquete: $PACKAGE_FILE"
+echo "Tamaño: $(du -h "$PACKAGE_FILE" | cut -f1)"
+
+# Confirmar publicación
+read -p "¿Estás seguro de que quieres publicar este paquete a NuGet.org? (y/N): " confirmation
+if [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
+    echo "Publicación cancelada."
+    exit 0
+fi
+
+# Publicar el paquete
+echo "Publicando paquete..."
+if dotnet nuget push "$PACKAGE_FILE" --api-key "$API_KEY" --source https://api.nuget.org/v3/index.json; then
+    echo "¡Paquete publicado exitosamente!"
+    echo "URL del paquete: https://www.nuget.org/packages/JonjubNet.Logging/$VERSION"
+else
+    echo "Error al publicar el paquete."
+    exit 1
+fi
+
+echo ""
+echo "¡Publicación completada!"

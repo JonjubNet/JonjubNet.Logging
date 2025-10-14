@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <add key="gitHub" value="https://nuget.pkg.github.com/JonjubNet/index.com" protocolVersion="3" />
+  </packageSources>
+	<packageSourcesCredentials>
+		<github>
+			<add key="Username" value="REPLACE_WITH_YOUR_GITHUB_USERNAME"/>
+			<add key="ClearTextPassword" value="REPLACE_WITH_YOUR_GITHUB_TOKEN"/>
+		</github>
+	</packageSourcesCredentials>
+</configuration>

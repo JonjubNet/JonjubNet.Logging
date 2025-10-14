@@ -1,0 +1,56 @@
+# Script para publicar JonjubNet.Logging a NuGet.org
+param(
+    [string]$ApiKey = $env:NUGET_API_KEY,
+    [string]$Version = "1.0.0",
+    [string]$Configuration = "Release"
+)
+
+# Verificar que la API key esté configurada
+if (-not $ApiKey) {
+    Write-Host "Error: No se encontró la API key de NuGet." -ForegroundColor Red
+    Write-Host "Configura la variable de entorno NUGET_API_KEY o pásala como parámetro:" -ForegroundColor Yellow
+    Write-Host "  \$env:NUGET_API_KEY = 'tu-api-key-aqui'" -ForegroundColor Yellow
+    Write-Host "  .\publish-package.ps1 -ApiKey 'tu-api-key-aqui'" -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "Publicando JonjubNet.Logging v$Version a NuGet.org" -ForegroundColor Green
+
+# Verificar que el paquete existe
+$packageFile = "./packages/JonjubNet.Logging.$Version.nupkg"
+if (-not (Test-Path $packageFile)) {
+    Write-Host "Error: No se encontró el paquete $packageFile" -ForegroundColor Red
+    Write-Host "Ejecuta primero: dotnet pack --configuration $Configuration --output ./packages" -ForegroundColor Yellow
+    exit 1
+}
+
+# Mostrar información del paquete
+$packageInfo = Get-Item $packageFile
+Write-Host "Archivo del paquete: $($packageInfo.FullName)" -ForegroundColor Cyan
+Write-Host "Tamaño: $([math]::Round($packageInfo.Length / 1KB, 2)) KB" -ForegroundColor Cyan
+
+# Confirmar publicación
+$confirmation = Read-Host "¿Estás seguro de que quieres publicar este paquete a NuGet.org? (y/N)"
+if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
+    Write-Host "Publicación cancelada." -ForegroundColor Yellow
+    exit 0
+}
+
+# Publicar el paquete
+Write-Host "Publicando paquete..." -ForegroundColor Yellow
+try {
+    dotnet nuget push $packageFile --api-key $ApiKey --source https://api.nuget.org/v3/index.json
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "¡Paquete publicado exitosamente!" -ForegroundColor Green
+        Write-Host "URL del paquete: https://www.nuget.org/packages/JonjubNet.Logging/$Version" -ForegroundColor Cyan
+    } else {
+        Write-Host "Error al publicar el paquete." -ForegroundColor Red
+        exit 1
+    }
+} catch {
+    Write-Host "Error inesperado: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "`n¡Publicación completada!" -ForegroundColor Green
