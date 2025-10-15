@@ -106,9 +106,9 @@ jobs:
     - name: Publish to NuGet.org
       run: |
         echo "✅ Publishing to NuGet.org with API key..."
-        echo "API Key available: $([ -n "${{ secrets.JONJUBNET_NUGET }}" ] && echo "YES" || echo "NO")"
+        echo "API Key available: $([ -n "${{ secrets.NUGET_API_KEY}}" ] && echo "YES" || echo "NO")"
         dotnet nuget push ./packages/*.nupkg \
-          --api-key "${{ secrets.JONJUBNET_NUGET }}" \
+          --api-key "${{ secrets.NUGET_API_KEY }}" \
           --source "https://api.nuget.org/v3/index.json" \
           --skip-duplicate
 
@@ -142,7 +142,7 @@ jobs:
     - name: Create Release
       uses: actions/create-release@v1
       env:
-        JONJUBNET_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
       with:
         tag_name: ${{ github.ref_name }}
         release_name: Release ${{ github.ref_name }}
@@ -166,7 +166,7 @@ jobs:
     - name: Upload Release Assets
       uses: actions/upload-release-asset@v1
       env:
-        JONJUBNET_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./packages/JonjubNet.Logging.${{ github.ref_name }}.nupkg
