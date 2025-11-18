@@ -141,11 +141,33 @@ namespace JonjubNet.Logging.Configuration
 
     /// <summary>
     /// Configuración de Kafka Producer
+    /// Soporta múltiples tipos de conexión:
+    /// 1. Conexión directa nativa (BootstrapServers) - Protocolo binario nativo de Kafka
+    /// 2. Conexión HTTP/HTTPS (ProducerUrl) - A través de Kafka REST Proxy
+    /// 3. Webhook HTTP/HTTPS (ProducerUrl + UseWebhook) - Envío directo a endpoint webhook
     /// </summary>
     public class LoggingKafkaProducerConfiguration
     {
         public bool Enabled { get; set; } = false;
+        
+        /// <summary>
+        /// Conexión directa nativa: BootstrapServers de Kafka (ej: "localhost:9092")
+        /// Tiene prioridad sobre ProducerUrl si está configurado
+        /// </summary>
+        public string? BootstrapServers { get; set; }
+        
+        /// <summary>
+        /// URL del producer para REST Proxy o Webhook
+        /// Para REST Proxy: "http://kafka-rest:8082" o "https://kafka-rest:8443"
+        /// Para Webhook: "http://webhook-url" o "https://webhook-url" (con UseWebhook=true)
+        /// </summary>
         public string ProducerUrl { get; set; } = "http://localhost:8080/api/logs";
+        
+        /// <summary>
+        /// Indica si ProducerUrl es un webhook (true) o REST Proxy (false)
+        /// </summary>
+        public bool UseWebhook { get; set; } = false;
+        
         public string Topic { get; set; } = "structured-logs";
         public int TimeoutSeconds { get; set; } = 5;
         public int BatchSize { get; set; } = 100;
