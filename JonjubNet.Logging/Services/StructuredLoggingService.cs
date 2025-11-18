@@ -53,20 +53,33 @@ namespace JonjubNet.Logging.Services
             // Inicializar conexión a Kafka si está habilitado
             if (_configuration.KafkaProducer.Enabled)
             {
-                _connectionType = InitializeKafkaConnection();
+                var result = InitializeKafkaConnection();
+                _connectionType = result.ConnectionType;
+                _kafkaProducer = result.Producer;
             }
             else
             {
                 _connectionType = KafkaConnectionType.None;
+                _kafkaProducer = null;
             }
+        }
+
+        /// <summary>
+        /// Resultado de la inicialización de Kafka
+        /// </summary>
+        private class KafkaInitializationResult
+        {
+            public KafkaConnectionType ConnectionType { get; set; }
+            public IProducer<Null, string>? Producer { get; set; }
         }
 
         /// <summary>
         /// Inicializa la conexión a Kafka según la configuración
         /// </summary>
-        private KafkaConnectionType InitializeKafkaConnection()
+        private KafkaInitializationResult InitializeKafkaConnection()
         {
             var kafkaConfig = _configuration.KafkaProducer;
+            var result = new KafkaInitializationResult();
 
             // Prioridad 1: Conexión directa nativa (BootstrapServers)
             if (!string.IsNullOrEmpty(kafkaConfig.BootstrapServers))
@@ -85,20 +98,25 @@ namespace JonjubNet.Logging.Services
                         BatchSize = kafkaConfig.BatchSize
                     };
 
-                    _kafkaProducer = new ProducerBuilder<Null, string>(producerConfig).Build();
+                    result.Producer = new ProducerBuilder<Null, string>(producerConfig).Build();
+                    result.ConnectionType = KafkaConnectionType.Native;
                     _logger.LogInformation("Kafka Producer inicializado - Tipo: Conexión Directa Nativa | Tópico: {Topic} | BootstrapServers: {BootstrapServers}",
                         kafkaConfig.Topic, kafkaConfig.BootstrapServers);
-                    return KafkaConnectionType.Native;
+                    return result;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al inicializar Kafka Producer con conexión directa");
-                    return KafkaConnectionType.None;
+                    result.ConnectionType = KafkaConnectionType.None;
+                    result.Producer = null;
+                    return result;
                 }
             }
             // Prioridad 2: Conexión HTTP/HTTPS (ProducerUrl)
             else if (!string.IsNullOrEmpty(kafkaConfig.ProducerUrl))
             {
+                result.Producer = null; // No se usa producer para HTTP/HTTPS/Webhook
+                
                 // Determinar si es webhook o REST Proxy
                 if (kafkaConfig.UseWebhook)
                 {
@@ -107,18 +125,21 @@ namespace JonjubNet.Logging.Services
                     {
                         _logger.LogInformation("Kafka Producer configurado - Tipo: Webhook HTTPS | Tópico: {Topic} | URL: {Url}",
                             kafkaConfig.Topic, kafkaConfig.ProducerUrl);
-                        return KafkaConnectionType.WebhookHttps;
+                        result.ConnectionType = KafkaConnectionType.WebhookHttps;
+                        return result;
                     }
                     else if (kafkaConfig.ProducerUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
                     {
                         _logger.LogInformation("Kafka Producer configurado - Tipo: Webhook HTTP | Tópico: {Topic} | URL: {Url}",
                             kafkaConfig.Topic, kafkaConfig.ProducerUrl);
-                        return KafkaConnectionType.WebhookHttp;
+                        result.ConnectionType = KafkaConnectionType.WebhookHttp;
+                        return result;
                     }
                     else
                     {
                         _logger.LogWarning("ProducerUrl no tiene un protocolo válido (http:// o https://). Se asume Webhook HTTPS.");
-                        return KafkaConnectionType.WebhookHttps;
+                        result.ConnectionType = KafkaConnectionType.WebhookHttps;
+                        return result;
                     }
                 }
                 else
@@ -128,25 +149,30 @@ namespace JonjubNet.Logging.Services
                     {
                         _logger.LogInformation("Kafka Producer configurado - Tipo: HTTPS (REST Proxy) | Tópico: {Topic} | URL: {Url}",
                             kafkaConfig.Topic, kafkaConfig.ProducerUrl);
-                        return KafkaConnectionType.Https;
+                        result.ConnectionType = KafkaConnectionType.Https;
+                        return result;
                     }
                     else if (kafkaConfig.ProducerUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
                     {
                         _logger.LogInformation("Kafka Producer configurado - Tipo: HTTP (REST Proxy) | Tópico: {Topic} | URL: {Url}",
                             kafkaConfig.Topic, kafkaConfig.ProducerUrl);
-                        return KafkaConnectionType.Http;
+                        result.ConnectionType = KafkaConnectionType.Http;
+                        return result;
                     }
                     else
                     {
                         _logger.LogWarning("ProducerUrl no tiene un protocolo válido (http:// o https://). Se asume HTTPS.");
-                        return KafkaConnectionType.Https;
+                        result.ConnectionType = KafkaConnectionType.Https;
+                        return result;
                     }
                 }
             }
             else
             {
                 _logger.LogWarning("Kafka está habilitado pero no se ha configurado BootstrapServers ni ProducerUrl. Los mensajes no se enviarán a Kafka.");
-                return KafkaConnectionType.None;
+                result.ConnectionType = KafkaConnectionType.None;
+                result.Producer = null;
+                return result;
             }
         }
 
