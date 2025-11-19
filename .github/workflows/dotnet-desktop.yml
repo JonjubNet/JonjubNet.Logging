@@ -30,7 +30,7 @@ jobs:
       id: version
       shell: bash
       run: |
-        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+        if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
           # Extraer versión del tag (remover prefijo 'v')
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
@@ -39,6 +39,10 @@ jobs:
         else
           # Leer versión del .csproj usando sed (más compatible)
           VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' JonjubNet.Logging/JonjubNet.Logging.csproj | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "❌ Error: Could not extract version from .csproj"
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "✅ Using version from .csproj: $VERSION"
         fi
@@ -49,11 +53,19 @@ jobs:
       shell: bash
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        # Actualizar la versión en el .csproj
+        if [ -z "$VERSION" ]; then
+          echo "❌ Error: Version is empty"
+          exit 1
+        fi
+        # Actualizar la versión en el .csproj (compatible con Linux)
         sed -i "s/<Version>.*<\/Version>/<Version>$VERSION<\/Version>/" JonjubNet.Logging/JonjubNet.Logging.csproj
         echo "✅ Updated .csproj version to $VERSION"
-        # Mostrar el cambio
-        grep "<Version>" JonjubNet.Logging/JonjubNet.Logging.csproj
+        # Verificar el cambio
+        if grep -q "<Version>$VERSION</Version>" JonjubNet.Logging/JonjubNet.Logging.csproj; then
+          echo "✅ Version update verified in .csproj"
+        else
+          echo "❌ Warning: Could not verify version update"
+        fi
 
     - name: Restore dependencies
       run: dotnet restore JonjubNet.Logging/JonjubNet.Logging.csproj
