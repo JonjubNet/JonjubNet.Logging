@@ -4,6 +4,7 @@ using JonjubNet.Logging.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 
@@ -13,6 +14,9 @@ namespace JonjubNet.Logging
     {
         public static void AddStructuredLoggingInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
+            // Configurar y registrar LoggingConfiguration como IOptions
+            services.Configure<LoggingConfiguration>(configuration.GetSection(LoggingConfiguration.SectionName));
+            
             // Registrar el servicio de usuario por defecto
             services.AddScoped<ICurrentUserService, DefaultCurrentUserService>();
 
@@ -40,6 +44,9 @@ namespace JonjubNet.Logging
         public static void AddStructuredLoggingInfrastructure<TUserService>(this IServiceCollection services, IConfiguration configuration)
             where TUserService : class, ICurrentUserService
         {
+            // Configurar y registrar LoggingConfiguration como IOptions
+            services.Configure<LoggingConfiguration>(configuration.GetSection(LoggingConfiguration.SectionName));
+            
             // Registrar el servicio de usuario personalizado
             services.AddScoped<ICurrentUserService, TUserService>();
 
