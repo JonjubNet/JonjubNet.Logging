@@ -26,6 +26,35 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Extract version from tag or use project version
+      id: version
+      shell: bash
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          # Extraer versión del tag (remover prefijo 'v')
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "✅ Extracted version from tag: $VERSION"
+        else
+          # Leer versión del .csproj usando sed (más compatible)
+          VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' JonjubNet.Logging/JonjubNet.Logging.csproj | head -1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "✅ Using version from .csproj: $VERSION"
+        fi
+        echo "📦 Package version will be: $VERSION"
+
+    - name: Update .csproj version if tag exists
+      if: startsWith(github.ref, 'refs/tags/v')
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        # Actualizar la versión en el .csproj
+        sed -i "s/<Version>.*<\/Version>/<Version>$VERSION<\/Version>/" JonjubNet.Logging/JonjubNet.Logging.csproj
+        echo "✅ Updated .csproj version to $VERSION"
+        # Mostrar el cambio
+        grep "<Version>" JonjubNet.Logging/JonjubNet.Logging.csproj
+
     - name: Restore dependencies
       run: dotnet restore JonjubNet.Logging/JonjubNet.Logging.csproj
 
@@ -36,7 +65,7 @@ jobs:
       run: dotnet test JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --verbosity normal
 
     - name: Pack
-      run: dotnet pack JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --output ./packages
+      run: dotnet pack JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --output ./packages -p:Version=${{ steps.version.outputs.version }}
 
     - name: Upload packages
       uses: actions/upload-artifact@v4
