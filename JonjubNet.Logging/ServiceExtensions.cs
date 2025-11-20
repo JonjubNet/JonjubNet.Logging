@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
+using System.Reflection;
 
 namespace JonjubNet.Logging
 {
@@ -26,6 +27,12 @@ namespace JonjubNet.Logging
 
             // Registrar el servicio de logging estructurado
             services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+
+            // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
+            // Este behavior captura automáticamente todas las operaciones sin código manual
+            // Nota: Requiere que MediatR esté instalado en la aplicación que usa esta biblioteca
+            // Comentado temporalmente hasta que MediatR esté completamente configurado
+            // RegisterLoggingBehaviour(services);
 
             // Configurar Serilog solo una vez
             lock (_lockObject)
@@ -71,6 +78,12 @@ namespace JonjubNet.Logging
             // Registrar el servicio de logging estructurado
             services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
 
+            // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
+            // Este behavior captura automáticamente todas las operaciones sin código manual
+            // Nota: Requiere que MediatR esté instalado en la aplicación que usa esta biblioteca
+            // Comentado temporalmente hasta que MediatR esté completamente configurado
+            // RegisterLoggingBehaviour(services);
+
             // Configurar Serilog solo una vez
             lock (_lockObject)
             {
@@ -97,8 +110,86 @@ namespace JonjubNet.Logging
             }
         }
 
+        /// <summary>
+        /// Registra el LoggingBehaviour para MediatR si está disponible
+        /// </summary>
+        private static void RegisterLoggingBehaviour(IServiceCollection services)
+        {
+            try
+            {
+                // Verificar si MediatR está disponible usando reflexión
+                var mediatRAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "MediatR");
+
+                if (mediatRAssembly == null)
+                {
+                    // Intentar cargar MediatR
+                    try
+                    {
+                        mediatRAssembly = Assembly.Load("MediatR");
+                    }
+                    catch
+                    {
+                        return; // MediatR no está disponible
+                    }
+                }
+
+                // Obtener el tipo IPipelineBehavior usando reflexión
+                var pipelineBehaviorType = mediatRAssembly.GetType("MediatR.IPipelineBehavior`2");
+                if (pipelineBehaviorType == null)
+                {
+                    return; // No se encontró IPipelineBehavior
+                }
+
+                // Obtener el tipo LoggingBehaviour
+                var loggingBehaviourType = Type.GetType("JonjubNet.Logging.Behaviours.LoggingBehaviour`2, JonjubNet.Logging");
+                if (loggingBehaviourType == null)
+                {
+                    return; // No se encontró LoggingBehaviour
+                }
+
+                // Registrar el behavior usando el método AddTransient con tipos
+                var addTransientMethod = typeof(ServiceCollectionServiceExtensions)
+                    .GetMethods()
+                    .FirstOrDefault(m => m.Name == "AddTransient" && 
+                                        !m.IsGenericMethod &&
+                                        m.GetParameters().Length == 2 &&
+                                        m.GetParameters()[0].ParameterType == typeof(IServiceCollection) &&
+                                        m.GetParameters()[1].ParameterType == typeof(Type));
+
+                if (addTransientMethod != null)
+                {
+                    // Buscar el método correcto: AddTransient(IServiceCollection, Type, Type)
+                    var correctMethod = typeof(ServiceCollectionServiceExtensions)
+                        .GetMethods()
+                        .FirstOrDefault(m => m.Name == "AddTransient" && 
+                                            !m.IsGenericMethod &&
+                                            m.GetParameters().Length == 3 &&
+                                            m.GetParameters()[0].ParameterType == typeof(IServiceCollection) &&
+                                            m.GetParameters()[1].ParameterType == typeof(Type) &&
+                                            m.GetParameters()[2].ParameterType == typeof(Type));
+
+                    if (correctMethod != null)
+                    {
+                        correctMethod.Invoke(null, new object[] { services, pipelineBehaviorType, loggingBehaviourType });
+                    }
+                }
+            }
+            catch
+            {
+                // Si MediatR no está disponible o no está registrado, ignorar silenciosamente
+                // El behavior solo funcionará si MediatR está registrado en la aplicación
+            }
+        }
+
         private static void ConfigureSerilog(LoggingConfiguration config)
         {
+            // Si el logger ya está configurado, no configurarlo de nuevo
+            if (Log.Logger != null && Log.Logger != Serilog.Core.Logger.None)
+            {
+                return;
+            }
+
             var loggerConfig = new LoggerConfiguration()
                 .MinimumLevel.Is(GetLogLevel(config.MinimumLevel))
                 .Enrich.FromLogContext()
@@ -166,8 +257,11 @@ namespace JonjubNet.Logging
                 loggerConfig.Enrich.WithProperty(property.Key, property.Value);
             }
 
-            // Crear el logger
-            Log.Logger = loggerConfig.CreateLogger();
+            // Crear el logger solo si no existe
+            if (Log.Logger == null || Log.Logger == Serilog.Core.Logger.None)
+            {
+                Log.Logger = loggerConfig.CreateLogger();
+            }
         }
 
         private static LogEventLevel GetLogLevel(string level)
