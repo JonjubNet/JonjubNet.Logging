@@ -56,11 +56,14 @@ namespace JonjubNet.Logging.Services
                 var result = InitializeKafkaConnection();
                 _connectionType = result.ConnectionType;
                 _kafkaProducer = result.Producer;
+                _logger.LogInformation("Kafka Producer inicializado. ConnectionType: {ConnectionType}, Topic: {Topic}, BootstrapServers: {BootstrapServers}",
+                    _connectionType, _configuration.KafkaProducer.Topic, _configuration.KafkaProducer.BootstrapServers ?? "N/A");
             }
             else
             {
                 _connectionType = KafkaConnectionType.None;
                 _kafkaProducer = null;
+                _logger.LogWarning("Kafka Producer está deshabilitado en la configuración");
             }
         }
 
@@ -419,33 +422,47 @@ namespace JonjubNet.Logging.Services
         private async Task SendToKafkaAsync(Models.StructuredLogEntry logEntry)
         {
             // Verificar si Kafka está habilitado
-            if (!_configuration.KafkaProducer.Enabled || _connectionType == KafkaConnectionType.None)
+            if (!_configuration.KafkaProducer.Enabled)
+            {
+                _logger.LogDebug("Kafka Producer deshabilitado. Mensaje no enviado.");
                 return;
+            }
+
+            if (_connectionType == KafkaConnectionType.None)
+            {
+                _logger.LogWarning("Kafka Producer habilitado pero ConnectionType es None. Mensaje no enviado.");
+                return;
+            }
 
             try
             {
                 var jsonMessage = logEntry.ToJson();
+                _logger.LogDebug("Enviando a Kafka. Tipo: {ConnectionType}, Topic: {Topic}", _connectionType, _configuration.KafkaProducer.Topic);
 
                 // Enviar según el tipo de conexión configurado
                 switch (_connectionType)
                 {
                     case KafkaConnectionType.Native:
                         await SendToKafkaNativeAsync(jsonMessage);
+                        _logger.LogDebug("Mensaje enviado exitosamente a Kafka (Native)");
                         break;
                     case KafkaConnectionType.Http:
                     case KafkaConnectionType.Https:
                         await SendToKafkaHttpAsync(jsonMessage);
+                        _logger.LogDebug("Mensaje enviado exitosamente a Kafka ({Type})", _connectionType);
                         break;
                     case KafkaConnectionType.WebhookHttp:
                     case KafkaConnectionType.WebhookHttps:
                         await SendToWebhookAsync(jsonMessage);
+                        _logger.LogDebug("Mensaje enviado exitosamente a Webhook ({Type})", _connectionType);
                         break;
                 }
             }
             catch (Exception ex)
             {
                 // Log del error pero no re-lanzar para no afectar la aplicación
-                _logger.LogWarning(ex, "Failed to send log to Kafka");
+                _logger.LogError(ex, "Error al enviar log a Kafka. Tipo: {ConnectionType}, Topic: {Topic}", 
+                    _connectionType, _configuration.KafkaProducer.Topic);
                 throw; // Re-lanzar para que el catch en LogCustom lo maneje
             }
         }
@@ -455,16 +472,28 @@ namespace JonjubNet.Logging.Services
         /// </summary>
         private async Task SendToKafkaNativeAsync(string jsonMessage)
         {
-            if (_kafkaProducer == null) return;
+            if (_kafkaProducer == null)
+            {
+                _logger.LogError("Kafka Producer es null. No se puede enviar el mensaje.");
+                throw new InvalidOperationException("Kafka Producer no está inicializado");
+            }
 
             try
             {
                 var result = await _kafkaProducer.ProduceAsync(_configuration.KafkaProducer.Topic, new Message<Null, string> { Value = jsonMessage });
-                _logger.LogDebug("Mensaje enviado a Kafka (Conexión Nativa). Topic: {Topic}, Offset: {Offset}", result.Topic, result.Offset);
+                _logger.LogInformation("Mensaje enviado a Kafka (Conexión Nativa). Topic: {Topic}, Offset: {Offset}, Partition: {Partition}", 
+                    result.Topic, result.Offset, result.Partition);
             }
             catch (ProduceException<Null, string> ex)
             {
-                _logger.LogError(ex, "Error al enviar mensaje a Kafka (Conexión Nativa). Topic: {Topic}", _configuration.KafkaProducer.Topic);
+                _logger.LogError(ex, "Error al enviar mensaje a Kafka (Conexión Nativa). Topic: {Topic}, Error: {Error}", 
+                    _configuration.KafkaProducer.Topic, ex.Error?.Reason ?? ex.Message);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado al enviar mensaje a Kafka (Conexión Nativa). Topic: {Topic}", 
+                    _configuration.KafkaProducer.Topic);
                 throw;
             }
         }

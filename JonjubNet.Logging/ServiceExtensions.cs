@@ -12,6 +12,10 @@ namespace JonjubNet.Logging
 {
     public static class ServiceExtensions
     {
+        private static bool _serilogConfigured = false;
+        private static bool _serilogProviderAdded = false;
+        private static readonly object _lockObject = new object();
+
         public static void AddStructuredLoggingInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
             // Configurar y registrar LoggingConfiguration como IOptions
@@ -23,16 +27,30 @@ namespace JonjubNet.Logging
             // Registrar el servicio de logging estructurado
             services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
 
-            // Configurar Serilog
-            var loggingConfig = configuration.GetSection(LoggingConfiguration.SectionName).Get<LoggingConfiguration>() ?? new LoggingConfiguration();
-            ConfigureSerilog(loggingConfig);
-
-            // Agregar Serilog al pipeline de logging
-            services.AddLogging(builder =>
+            // Configurar Serilog solo una vez
+            lock (_lockObject)
             {
-                builder.ClearProviders();
-                builder.AddSerilog();
-            });
+                if (!_serilogConfigured)
+                {
+                    var loggingConfig = configuration.GetSection(LoggingConfiguration.SectionName).Get<LoggingConfiguration>() ?? new LoggingConfiguration();
+                    ConfigureSerilog(loggingConfig);
+                    _serilogConfigured = true;
+                }
+            }
+
+            // Agregar Serilog al pipeline de logging solo una vez
+            lock (_lockObject)
+            {
+                if (!_serilogProviderAdded)
+                {
+                    services.AddLogging(builder =>
+                    {
+                        builder.ClearProviders();
+                        builder.AddSerilog(dispose: true);
+                    });
+                    _serilogProviderAdded = true;
+                }
+            }
         }
 
         /// <summary>
@@ -53,16 +71,30 @@ namespace JonjubNet.Logging
             // Registrar el servicio de logging estructurado
             services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
 
-            // Configurar Serilog
-            var loggingConfig = configuration.GetSection(LoggingConfiguration.SectionName).Get<LoggingConfiguration>() ?? new LoggingConfiguration();
-            ConfigureSerilog(loggingConfig);
-
-            // Agregar Serilog al pipeline de logging
-            services.AddLogging(builder =>
+            // Configurar Serilog solo una vez
+            lock (_lockObject)
             {
-                builder.ClearProviders();
-                builder.AddSerilog();
-            });
+                if (!_serilogConfigured)
+                {
+                    var loggingConfig = configuration.GetSection(LoggingConfiguration.SectionName).Get<LoggingConfiguration>() ?? new LoggingConfiguration();
+                    ConfigureSerilog(loggingConfig);
+                    _serilogConfigured = true;
+                }
+            }
+
+            // Agregar Serilog al pipeline de logging solo una vez
+            lock (_lockObject)
+            {
+                if (!_serilogProviderAdded)
+                {
+                    services.AddLogging(builder =>
+                    {
+                        builder.ClearProviders();
+                        builder.AddSerilog(dispose: true);
+                    });
+                    _serilogProviderAdded = true;
+                }
+            }
         }
 
         private static void ConfigureSerilog(LoggingConfiguration config)
