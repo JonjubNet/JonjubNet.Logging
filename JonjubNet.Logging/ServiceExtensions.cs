@@ -22,6 +22,10 @@ namespace JonjubNet.Logging
             // Configurar y registrar LoggingConfiguration como IOptions
             services.Configure<LoggingConfiguration>(configuration.GetSection(LoggingConfiguration.SectionName));
             
+            // Registrar IHttpContextAccessor para obtener información HTTP (RequestPath, RequestMethod, etc.)
+            // Esto es necesario para llenar campos HTTP en los logs
+            services.AddHttpContextAccessor();
+            
             // Registrar el servicio de usuario por defecto
             services.AddScoped<ICurrentUserService, DefaultCurrentUserService>();
 
@@ -71,6 +75,10 @@ namespace JonjubNet.Logging
         {
             // Configurar y registrar LoggingConfiguration como IOptions
             services.Configure<LoggingConfiguration>(configuration.GetSection(LoggingConfiguration.SectionName));
+            
+            // Registrar IHttpContextAccessor para obtener información HTTP (RequestPath, RequestMethod, etc.)
+            // Esto es necesario para llenar campos HTTP en los logs
+            services.AddHttpContextAccessor();
             
             // Registrar el servicio de usuario personalizado
             services.AddScoped<ICurrentUserService, TUserService>();

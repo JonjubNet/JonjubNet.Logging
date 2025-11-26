@@ -322,6 +322,10 @@ namespace JonjubNet.Logging.Services
 
         private Models.StructuredLogEntry CreateLogEntry(string logLevel, string message, string operation, string category, Dictionary<string, object>? properties, Dictionary<string, object>? context, Exception? exception = null)
         {
+            // Filtrar campos duplicados de properties que ya existen en el nivel raíz
+            // Esto evita duplicación de datos según mejores prácticas de logging estructurado
+            var filteredProperties = FilterDuplicateProperties(properties);
+
             return new Models.StructuredLogEntry
             {
                 ServiceName = _configuration.ServiceName,
@@ -336,7 +340,7 @@ namespace JonjubNet.Logging.Services
                 MachineName = Environment.MachineName,
                 ProcessId = Environment.ProcessId.ToString(),
                 ThreadId = Environment.CurrentManagedThreadId.ToString(),
-                Properties = properties ?? new Dictionary<string, object>(),
+                Properties = filteredProperties,
                 Context = context ?? new Dictionary<string, object>(),
                 Exception = exception,
                 StackTrace = exception?.StackTrace,
@@ -344,13 +348,56 @@ namespace JonjubNet.Logging.Services
             };
         }
 
+        /// <summary>
+        /// Obtiene el conjunto de campos reservados que ya están en el nivel raíz del log
+        /// Estos campos no deben duplicarse en el diccionario Properties
+        /// </summary>
+        private static HashSet<string> GetReservedFields()
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "ServiceName", "Operation", "LogLevel", "Message", "Category", "EventType",
+                "UserId", "UserName", "Environment", "Version", "MachineName", "ProcessId", "ThreadId",
+                "RequestPath", "RequestMethod", "StatusCode", "ClientIp", "UserAgent",
+                "CorrelationId", "RequestId", "SessionId", "Timestamp", "Exception", "StackTrace"
+            };
+        }
+
+        /// <summary>
+        /// Filtra propiedades duplicadas que ya existen en el nivel raíz del log
+        /// Evita duplicación de campos según mejores prácticas de logging estructurado
+        /// </summary>
+        private Dictionary<string, object> FilterDuplicateProperties(Dictionary<string, object>? properties)
+        {
+            if (properties == null || properties.Count == 0)
+                return new Dictionary<string, object>();
+
+            var reservedFields = GetReservedFields();
+            var filtered = new Dictionary<string, object>();
+            foreach (var prop in properties)
+            {
+                // Solo agregar si no es un campo reservado (ya está en nivel raíz)
+                if (!reservedFields.Contains(prop.Key))
+                {
+                    filtered[prop.Key] = prop.Value;
+                }
+            }
+
+            return filtered;
+        }
+
+        /// <summary>
+        /// Enriquece la entrada de log con información del contexto HTTP y correlación
+        /// Aplica mejores prácticas: siempre llena campos con valores por defecto cuando no hay contexto HTTP
+        /// </summary>
         private void EnrichLogEntry(Models.StructuredLogEntry logEntry)
         {
             // Enriquecer con información del HTTP Context
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext != null)
             {
-                logEntry.RequestPath = httpContext.Request.Path;
+                // Información HTTP disponible
+                logEntry.RequestPath = httpContext.Request.Path.ToString();
                 logEntry.RequestMethod = httpContext.Request.Method;
                 logEntry.StatusCode = httpContext.Response.StatusCode;
                 logEntry.ClientIp = GetClientIpAddress(httpContext);
@@ -421,11 +468,60 @@ namespace JonjubNet.Logging.Services
                     logEntry.SessionId = httpContext.Items[sessionIdKey]?.ToString();
                 }
             }
+            else
+            {
+                // No hay contexto HTTP - aplicar mejores prácticas: llenar con valores por defecto
+                // Esto asegura estructura consistente incluso para logs fuera de contexto HTTP
+                logEntry.RequestPath = "N/A";
+                logEntry.RequestMethod = "N/A";
+                logEntry.StatusCode = 0; // 0 indica que no hay contexto HTTP
+                logEntry.ClientIp = "N/A";
+                logEntry.UserAgent = "N/A";
 
-            // Agregar propiedades estáticas configuradas
+                // Generar IDs de correlación incluso sin HttpContext si están habilitados
+                // Esto permite rastrear logs fuera de contexto HTTP
+                if (_configuration.Correlation.EnableCorrelationId && string.IsNullOrEmpty(logEntry.CorrelationId))
+                {
+                    logEntry.CorrelationId = Guid.NewGuid().ToString();
+                }
+
+                if (_configuration.Correlation.EnableRequestId && string.IsNullOrEmpty(logEntry.RequestId))
+                {
+                    logEntry.RequestId = Guid.NewGuid().ToString();
+                }
+
+                if (_configuration.Correlation.EnableSessionId && string.IsNullOrEmpty(logEntry.SessionId))
+                {
+                    logEntry.SessionId = Guid.NewGuid().ToString();
+                }
+            }
+
+            // Asegurar que los IDs de correlación se generen si están habilitados pero aún son null
+            // (por si acaso no se generaron en los bloques anteriores)
+            if (_configuration.Correlation.EnableCorrelationId && string.IsNullOrEmpty(logEntry.CorrelationId))
+            {
+                logEntry.CorrelationId = Guid.NewGuid().ToString();
+            }
+
+            if (_configuration.Correlation.EnableRequestId && string.IsNullOrEmpty(logEntry.RequestId))
+            {
+                logEntry.RequestId = Guid.NewGuid().ToString();
+            }
+
+            if (_configuration.Correlation.EnableSessionId && string.IsNullOrEmpty(logEntry.SessionId))
+            {
+                logEntry.SessionId = Guid.NewGuid().ToString();
+            }
+
+            // Agregar propiedades estáticas configuradas (filtradas para evitar duplicación)
+            var reservedFields = GetReservedFields();
             foreach (var property in _configuration.Enrichment.StaticProperties)
             {
-                logEntry.Properties[property.Key] = property.Value;
+                // Solo agregar si no es un campo reservado (ya está en nivel raíz)
+                if (!reservedFields.Contains(property.Key))
+                {
+                    logEntry.Properties[property.Key] = property.Value;
+                }
             }
         }
 

@@ -140,41 +140,60 @@ namespace JonjubNet.Logging.Models
         /// <summary>
         /// Convierte la entrada de log a JSON
         /// </summary>
-        /// <returns>JSON string</returns>
+        /// <returns>JSON string válido y bien formateado</returns>
         public string ToJson()
         {
             var options = new JsonSerializerOptions
             {
                 WriteIndented = false,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                // Nota: No omitimos nulls para mantener estructura consistente
+                // Esto facilita queries y análisis en sistemas como Elasticsearch
             };
 
-            // Crear un objeto anónimo sin la excepción para serialización
+            // Crear un objeto anónimo con orden lógico
+            // System.Text.Json garantiza JSON válido sin comas finales
+            // Los campos null se incluyen explícitamente para mantener estructura consistente
             var logObject = new
             {
+                // Identificación y contexto básico
                 ServiceName,
                 Operation,
                 LogLevel,
                 Message,
                 Category,
                 EventType,
+                
+                // Información de usuario
                 UserId,
                 UserName,
+                
+                // Información del sistema
                 Environment,
                 Version,
                 MachineName,
                 ProcessId,
                 ThreadId,
-                Properties,
-                Context,
+                
+                // Datos específicos del evento (siempre incluidos, incluso si están vacíos)
+                Properties = Properties.Count > 0 ? Properties : new Dictionary<string, object>(),
+                Context = Context.Count > 0 ? Context : new Dictionary<string, object>(),
+                
+                // Información de excepción
                 Exception = Exception?.ToString(),
                 StackTrace,
+                
+                // Timestamp
                 Timestamp,
+                
+                // Información HTTP
                 RequestPath,
                 RequestMethod,
                 StatusCode,
                 ClientIp,
                 UserAgent,
+                
+                // IDs de correlación
                 CorrelationId,
                 RequestId,
                 SessionId

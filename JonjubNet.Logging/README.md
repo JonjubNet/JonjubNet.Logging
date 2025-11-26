@@ -1,18 +1,17 @@
 # JonjubNet.Logging
 
-Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka) y funcionalidades avanzadas de correlación y enriquecimiento.
+Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch) y Kafka Producer con múltiples tipos de conexión.
 
 ## Características
 
 - ✅ **Logging Estructurado**: Logs en formato JSON con información contextual rica
-- ✅ **Múltiples Sinks**: Console, File, HTTP, Elasticsearch, Kafka
+- ✅ **Múltiples Sinks**: Console, File, HTTP, Elasticsearch
+- ✅ **Kafka Producer**: Soporte para 3 tipos de conexión (Nativa, REST Proxy, Webhook)
 - ✅ **Correlación**: Soporte para CorrelationId, RequestId, SessionId
-- ✅ **Enriquecimiento**: Información automática de Environment, Process, Thread, Machine
+- ✅ **Enriquecimiento Automático**: Información de Environment, Process, Thread, Machine, HTTP Context
 - ✅ **Filtros Avanzados**: Por categoría, operación, usuario y nivel de log
-- ✅ **Configuración Flexible**: Configuración completa via appsettings.json
-- ✅ **Integración con Serilog**: Basado en Serilog para máximo rendimiento
 - ✅ **ASP.NET Core Ready**: Integración nativa con ASP.NET Core
-- ✅ **.NET 10.0 Compatible**: Optimizado para .NET 10.0 con las últimas características
+- ✅ **.NET 10.0 Compatible**: Optimizado para .NET 10.0
 
 ## Instalación
 
@@ -20,84 +19,186 @@ Biblioteca de logging estructurado para aplicaciones .NET con soporte para múlt
 dotnet add package JonjubNet.Logging
 ```
 
-## Configuración Básica
+## Configuración Rápida
 
-### 1. Configurar en appsettings.json
-
-```json
-{
-  "StructuredLogging": {
-    "Enabled": true,
-    "MinimumLevel": "Information",
-    "ServiceName": "MiServicio",
-    "Environment": "Development",
-    "Version": "1.0.0",
-    "Sinks": {
-      "EnableConsole": true,
-      "EnableFile": true,
-      "EnableHttp": false,
-      "EnableElasticsearch": false,
-      "File": {
-        "Path": "logs/log-.txt",
-        "RollingInterval": "Day",
-        "RetainedFileCountLimit": 30,
-        "FileSizeLimitBytes": 104857600,
-        "OutputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
-      }
-    },
-    "Filters": {
-      "ExcludedCategories": [],
-      "ExcludedOperations": [],
-      "ExcludedUsers": [],
-      "FilterByLogLevel": true,
-      "CategoryLogLevels": {}
-    },
-    "Enrichment": {
-      "IncludeEnvironment": true,
-      "IncludeProcess": true,
-      "IncludeThread": true,
-      "IncludeMachineName": true,
-      "IncludeServiceInfo": true,
-      "StaticProperties": {}
-    },
-    "Correlation": {
-      "EnableCorrelationId": true,
-      "EnableRequestId": true,
-      "EnableSessionId": true,
-      "CorrelationIdHeader": "X-Correlation-ID",
-      "RequestIdHeader": "X-Request-ID",
-      "SessionIdHeader": "X-Session-ID"
-    },
-    "KafkaProducer": {
-      "Enabled": false,
-      "ProducerUrl": "http://localhost:8080/api/logs",
-      "Topic": "structured-logs",
-      "TimeoutSeconds": 5,
-      "BatchSize": 100,
-      "LingerMs": 5,
-      "RetryCount": 3,
-      "EnableCompression": true,
-      "CompressionType": "gzip",
-      "Headers": {}
-    }
-  }
-}
-```
-
-### 2. Registrar en Program.cs
+### 1. Registrar en Program.cs
 
 ```csharp
 using JonjubNet.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Agregar logging estructurado
+// Registrar logging estructurado (registra automáticamente IHttpContextAccessor)
 builder.Services.AddStructuredLoggingInfrastructure(builder.Configuration);
 
 var app = builder.Build();
-
 app.Run();
 ```
+
+**Nota:** `AddStructuredLoggingInfrastructure` registra automáticamente:
+- ✅ `IHttpContextAccessor` (para campos HTTP)
+- ✅ `ICurrentUserService` (por defecto)
+- ✅ `IStructuredLoggingService`
+
+### 2. Configurar en appsettings.json
+
+```json
+{
+  "StructuredLogging": {
+    "Enabled": true,
+    "ServiceName": "MiServicio",
+    "Environment": "Development",
+    "Version": "1.0.0",
+    "Sinks": {
+      "EnableConsole": true,
+      "EnableFile": true,
+      "File": {
+        "Path": "logs/log-.txt",
+        "RollingInterval": "Day",
+        "RetainedFileCountLimit": 30
+      }
+    },
+    "Correlation": {
+      "EnableCorrelationId": true,
+      "EnableRequestId": true,
+      "EnableSessionId": true
+    }
+  }
+}
+```
+
+## Configuración de Kafka Producer
+
+El componente soporta **3 tipos de conexión a Kafka**, con prioridad según la configuración:
+
+### Opción 1: Conexión Nativa (BootstrapServers) - ⚡ Recomendado
+
+Conexión directa usando el protocolo binario nativo de Kafka. **Tiene prioridad** si está configurado.
+
+```json
+{
+  "StructuredLogging": {
+    "KafkaProducer": {
+      "Enabled": true,
+      "BootstrapServers": "localhost:9092",
+      "Topic": "structured-logs",
+      "TimeoutSeconds": 5,
+      "BatchSize": 100,
+      "LingerMs": 5,
+      "RetryCount": 3,
+      "EnableCompression": true,
+      "CompressionType": "gzip"
+    }
+  }
+}
+```
+
+**Ventajas:**
+- ⚡ Mayor rendimiento (protocolo binario)
+- ✅ Menor latencia
+- ✅ Soporte completo de características de Kafka
+
+**Cuándo usar:**
+- Cuando tienes acceso directo a los brokers de Kafka
+- Para máximo rendimiento
+- En entornos de producción
+
+### Opción 2: Kafka REST Proxy (HTTP/HTTPS)
+
+Conexión a través de Kafka REST Proxy usando HTTP/HTTPS.
+
+```json
+{
+  "StructuredLogging": {
+    "KafkaProducer": {
+      "Enabled": true,
+      "ProducerUrl": "http://kafka-rest:8082",
+      "UseWebhook": false,
+      "Topic": "structured-logs",
+      "TimeoutSeconds": 5,
+      "Headers": {}
+    }
+  }
+}
+```
+
+**Para HTTPS:**
+```json
+{
+  "KafkaProducer": {
+    "Enabled": true,
+    "ProducerUrl": "https://kafka-rest:8443",
+    "UseWebhook": false,
+    "Topic": "structured-logs"
+  }
+}
+```
+
+**Ventajas:**
+- ✅ Fácil de configurar
+- ✅ Funciona a través de firewalls
+- ✅ No requiere librerías nativas de Kafka en algunos entornos
+
+**Cuándo usar:**
+- Cuando usas Confluent REST Proxy
+- En entornos donde no puedes acceder directamente a los brokers
+- Para integración con sistemas que solo soportan HTTP
+
+**Formato del mensaje:** El componente envía el mensaje en formato de REST Proxy:
+```json
+{
+  "records": [
+    { "value": "{\"serviceName\":\"...\",\"message\":\"...\"}" }
+  ]
+}
+```
+
+### Opción 3: Webhook HTTP/HTTPS
+
+Envío directo a un endpoint webhook (no es Kafka, pero útil para integraciones).
+
+```json
+{
+  "StructuredLogging": {
+    "KafkaProducer": {
+      "Enabled": true,
+      "ProducerUrl": "https://mi-webhook.com/api/logs",
+      "UseWebhook": true,
+      "Topic": "structured-logs",
+      "TimeoutSeconds": 5,
+      "Headers": {
+        "Authorization": "Bearer token123",
+        "X-Custom-Header": "valor"
+      }
+    }
+  }
+}
+```
+
+**Ventajas:**
+- ✅ Envío directo a cualquier endpoint HTTP/HTTPS
+- ✅ Headers personalizados
+- ✅ Útil para integraciones con sistemas externos
+
+**Cuándo usar:**
+- Para enviar logs a sistemas que no son Kafka
+- Para integraciones con APIs externas
+- Cuando necesitas headers personalizados
+
+**Formato del mensaje:** El componente envía el JSON del log directamente:
+```json
+{
+  "serviceName": "...",
+  "message": "...",
+  "timestamp": "..."
+}
+```
+
+### Prioridad de Configuración
+
+1. **BootstrapServers** (si está configurado) → Conexión Nativa
+2. **ProducerUrl + UseWebhook = false** → REST Proxy
+3. **ProducerUrl + UseWebhook = true** → Webhook
 
 ## Uso Básico
 
@@ -119,15 +220,15 @@ public class MiController : ControllerBase
 
 ```csharp
 // Log de información
-_loggingService.LogInformation("Usuario autenticado exitosamente", "Authentication", "Security");
+_loggingService.LogInformation("Usuario autenticado", "Authentication", "Security");
 
 // Log de error
-_loggingService.LogError("Error al procesar petición", "ProcessRequest", "General", 
+_loggingService.LogError("Error al procesar", "ProcessRequest", "General", 
     properties: new Dictionary<string, object> { { "RequestId", "12345" } },
     exception: ex);
 
 // Log de advertencia
-_loggingService.LogWarning("Límite de intentos alcanzado", "LoginAttempt", "Security",
+_loggingService.LogWarning("Límite alcanzado", "LoginAttempt", "Security",
     properties: new Dictionary<string, object> { { "Attempts", 5 } });
 ```
 
@@ -139,18 +240,20 @@ _loggingService.LogOperationStart("ProcessOrder", "Business");
 
 try
 {
-    // Lógica de negocio
     var result = await ProcessOrderAsync();
     
     // Fin exitoso
-    _loggingService.LogOperationEnd("ProcessOrder", "Business", executionTimeMs: 1500, 
+    _loggingService.LogOperationEnd("ProcessOrder", "Business", 
+        executionTimeMs: 1500, 
         properties: new Dictionary<string, object> { { "OrderId", result.Id } });
 }
 catch (Exception ex)
 {
     // Fin con error
-    _loggingService.LogOperationEnd("ProcessOrder", "Business", executionTimeMs: 500, 
-        success: false, exception: ex);
+    _loggingService.LogOperationEnd("ProcessOrder", "Business", 
+        executionTimeMs: 500, 
+        success: false, 
+        exception: ex);
     throw;
 }
 ```
@@ -170,102 +273,17 @@ _loggingService.LogSecurityEvent("FailedLogin", "Intento de login fallido",
 _loggingService.LogAuditEvent("DataAccess", "Consulta de datos sensibles", "User", "12345");
 ```
 
-## Configuración Avanzada
-
-### Sink HTTP
-
-```json
-{
-  "Sinks": {
-    "EnableHttp": true,
-    "Http": {
-      "Url": "https://mi-servidor-logs.com/api/logs",
-      "ContentType": "application/json",
-      "BatchPostingLimit": 100,
-      "PeriodSeconds": 2,
-      "Headers": {
-        "Authorization": "Bearer token123"
-      }
-    }
-  }
-}
-```
-
-### Sink Elasticsearch
-
-```json
-{
-  "Sinks": {
-    "EnableElasticsearch": true,
-    "Elasticsearch": {
-      "Url": "http://localhost:9200",
-      "IndexFormat": "logs-{0:yyyy.MM.dd}",
-      "Username": "elastic",
-      "Password": "password",
-      "EnableAuthentication": true
-    }
-  }
-}
-```
-
-### Sink Kafka
-
-```json
-{
-  "KafkaProducer": {
-    "Enabled": true,
-    "ProducerUrl": "http://localhost:8080/api/logs",
-    "Topic": "structured-logs",
-    "TimeoutSeconds": 5,
-    "BatchSize": 100,
-    "LingerMs": 5,
-    "RetryCount": 3,
-    "EnableCompression": true,
-    "CompressionType": "gzip"
-  }
-}
-```
-
-### Filtros
-
-```json
-{
-  "Filters": {
-    "ExcludedCategories": ["Debug", "Trace"],
-    "ExcludedOperations": ["HealthCheck"],
-    "ExcludedUsers": ["System"],
-    "FilterByLogLevel": true,
-    "CategoryLogLevels": {
-      "Security": "Warning",
-      "Performance": "Information"
-    }
-  }
-}
-```
-
-### Enriquecimiento
-
-```json
-{
-  "Enrichment": {
-    "IncludeEnvironment": true,
-    "IncludeProcess": true,
-    "IncludeThread": true,
-    "IncludeMachineName": true,
-    "IncludeServiceInfo": true,
-    "StaticProperties": {
-      "Application": "MiAplicacion",
-      "Region": "us-east-1"
-    }
-  }
-}
-```
-
 ## Servicio de Usuario Personalizado
 
-Para integrar con tu sistema de autenticación, implementa `ICurrentUserService`:
+Para que `UserId` y `UserName` se llenen con datos reales en lugar de "Anonymous":
+
+### Implementación
 
 ```csharp
+using JonjubNet.Logging.Interfaces;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+
 public class CustomUserService : ICurrentUserService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -277,23 +295,92 @@ public class CustomUserService : ICurrentUserService
 
     public string? GetCurrentUserId()
     {
-        return _httpContextAccessor.HttpContext?.User?.FindFirst("sub")?.Value;
+        return _httpContextAccessor.HttpContext?.User?
+            .FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? "Anonymous";
     }
 
     public string? GetCurrentUserName()
     {
-        return _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+        return _httpContextAccessor.HttpContext?.User?
+            .FindFirst(ClaimTypes.Name)?.Value 
+            ?? "Anonymous";
     }
 
-    // Implementar otros métodos...
+    public string? GetCurrentUserEmail()
+    {
+        return _httpContextAccessor.HttpContext?.User?
+            .FindFirst(ClaimTypes.Email)?.Value;
+    }
+
+    public IEnumerable<string> GetCurrentUserRoles()
+    {
+        return _httpContextAccessor.HttpContext?.User?
+            .FindAll(ClaimTypes.Role)
+            .Select(c => c.Value) 
+            ?? Enumerable.Empty<string>();
+    }
+
+    public bool IsInRole(string role)
+    {
+        return _httpContextAccessor.HttpContext?.User?
+            .IsInRole(role) ?? false;
+    }
+
+    public bool IsAuthenticated()
+    {
+        return _httpContextAccessor.HttpContext?.User?
+            .Identity?.IsAuthenticated ?? false;
+    }
 }
 ```
 
-Y registrarlo:
+### Registro
 
 ```csharp
 builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.Configuration);
 ```
+
+## Campos que se Llenan Automáticamente
+
+### Campos Siempre Disponibles
+
+| Campo | Fuente | Valor por Defecto |
+|-------|--------|-------------------|
+| `ServiceName` | Configuración | De `appsettings.json` |
+| `Environment` | Configuración | De `appsettings.json` |
+| `Version` | Configuración | De `appsettings.json` |
+| `MachineName` | Sistema | Nombre de la máquina |
+| `ProcessId` | Sistema | ID del proceso |
+| `ThreadId` | Sistema | ID del hilo |
+| `Timestamp` | Sistema | Fecha/hora UTC |
+
+### Campos HTTP (si hay HttpContext)
+
+| Campo | Fuente | Valor sin HttpContext |
+|-------|--------|----------------------|
+| `RequestPath` | HttpContext | `"N/A"` |
+| `RequestMethod` | HttpContext | `"N/A"` |
+| `StatusCode` | HttpContext | `0` |
+| `ClientIp` | Headers HTTP | `"N/A"` |
+| `UserAgent` | Headers HTTP | `"N/A"` |
+
+### Campos de Correlación (si están habilitados)
+
+| Campo | Fuente | Comportamiento |
+|-------|--------|----------------|
+| `CorrelationId` | Header HTTP o generado | Se genera automáticamente (GUID) si `EnableCorrelationId = true` |
+| `RequestId` | Header HTTP o generado | Se genera automáticamente (GUID) si `EnableRequestId = true` |
+| `SessionId` | Header HTTP o generado | Se genera automáticamente (GUID) si `EnableSessionId = true` |
+
+**Nota:** Los IDs de correlación se generan automáticamente incluso sin HttpContext si están habilitados en la configuración.
+
+### Campos de Usuario (si implementas ICurrentUserService)
+
+| Campo | Fuente | Valor por Defecto |
+|-------|--------|-------------------|
+| `UserId` | ICurrentUserService | `"Anonymous"` |
+| `UserName` | ICurrentUserService | `"Anonymous"` |
 
 ## Ejemplo de Log Generado
 
@@ -304,6 +391,7 @@ builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.C
   "logLevel": "Information",
   "message": "Orden procesada exitosamente",
   "category": "Business",
+  "eventType": "OperationEnd",
   "userId": "user123",
   "userName": "john.doe",
   "environment": "Production",
@@ -316,35 +404,112 @@ builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.C
     "amount": 99.99
   },
   "context": {
-    "operationStart": "2024-01-15T10:30:00Z",
+    "operationEnd": "2024-01-15T10:30:01.500Z",
     "operationStatus": "Completed",
     "executionTimeMs": 1500,
     "success": true
   },
+  "exception": null,
+  "stackTrace": null,
   "timestamp": "2024-01-15T10:30:01.500Z",
   "requestPath": "/api/orders",
   "requestMethod": "POST",
   "statusCode": 200,
   "clientIp": "192.168.1.100",
   "userAgent": "Mozilla/5.0...",
-  "correlationId": "corr-12345",
-  "requestId": "req-67890",
-  "sessionId": "sess-abc123"
+  "correlationId": "d8284def-e59c-4d9c-a814-b05ea8319b03",
+  "requestId": "27473e7d-6afc-4f50-8165-3ec89ccffcc2",
+  "sessionId": "62ca01d0-bd52-468d-b597-2a790b12f124"
 }
 ```
 
-## Contribuir
+## Configuración Completa de Ejemplo
 
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+```json
+{
+  "StructuredLogging": {
+    "Enabled": true,
+    "MinimumLevel": "Information",
+    "ServiceName": "MiServicio",
+    "Environment": "Development",
+    "Version": "1.0.0",
+    "Sinks": {
+      "EnableConsole": true,
+      "EnableFile": true,
+      "EnableHttp": false,
+      "EnableElasticsearch": false,
+      "File": {
+        "Path": "logs/log-.txt",
+        "RollingInterval": "Day",
+        "RetainedFileCountLimit": 30,
+        "FileSizeLimitBytes": 104857600
+      }
+    },
+    "Filters": {
+      "ExcludedCategories": ["Debug", "Trace"],
+      "ExcludedOperations": ["HealthCheck"],
+      "ExcludedUsers": ["System"],
+      "FilterByLogLevel": true,
+      "CategoryLogLevels": {
+        "Security": "Warning",
+        "Performance": "Information"
+      }
+    },
+    "Enrichment": {
+      "IncludeEnvironment": true,
+      "IncludeProcess": true,
+      "IncludeThread": true,
+      "IncludeMachineName": true,
+      "IncludeServiceInfo": true,
+      "StaticProperties": {
+        "Application": "MiAplicacion",
+        "Region": "us-east-1"
+      }
+    },
+    "Correlation": {
+      "EnableCorrelationId": true,
+      "EnableRequestId": true,
+      "EnableSessionId": true,
+      "CorrelationIdHeader": "X-Correlation-ID",
+      "RequestIdHeader": "X-Request-ID",
+      "SessionIdHeader": "X-Session-ID"
+    },
+    "KafkaProducer": {
+      "Enabled": true,
+      "BootstrapServers": "localhost:9092",
+      "Topic": "structured-logs",
+      "TimeoutSeconds": 5,
+      "BatchSize": 100,
+      "LingerMs": 5,
+      "RetryCount": 3,
+      "EnableCompression": true,
+      "CompressionType": "gzip",
+      "Headers": {}
+    }
+  }
+}
+```
+
+## Solución de Problemas
+
+### Los campos HTTP están en "N/A"
+- ✅ `IHttpContextAccessor` ya se registra automáticamente
+- Verifica que el log se genere dentro del contexto de una petición HTTP
+
+### `UserId` y `UserName` están en "Anonymous"
+- Implementa `ICurrentUserService` personalizado
+- Regístralo con `AddStructuredLoggingInfrastructure<CustomUserService>`
+
+### `CorrelationId`, `RequestId`, `SessionId` están en `null`
+- Habilita en `appsettings.json`: `"EnableCorrelationId": true`, etc.
+- Una vez habilitados, se generan automáticamente incluso sin HttpContext
+
+### Kafka no envía mensajes
+- Verifica que `"Enabled": true` en `KafkaProducer`
+- Para conexión nativa: verifica que `BootstrapServers` sea accesible
+- Para REST Proxy: verifica que `ProducerUrl` apunte al REST Proxy correcto
+- Para Webhook: verifica que `UseWebhook: true` y que la URL sea accesible
 
 ## Licencia
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
-
-## Soporte
-
-Para soporte y preguntas, por favor abre un issue en el repositorio de GitHub.
+Este proyecto está licenciado bajo la Licencia MIT.
