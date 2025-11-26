@@ -222,6 +222,8 @@ namespace JonjubNet.Logging.Services
             EnrichLogEntry(logEntry);
 
             // Enviar a Kafka de forma asíncrona (fire-and-forget)
+            // Nota: El JSON es completo y autocontenido, no necesita LogContext
+            // El LogContext solo se usa para logs escritos directamente con _logger.Log()
             _ = Task.Run(async () =>
             {
                 try
@@ -238,6 +240,7 @@ namespace JonjubNet.Logging.Services
             });
 
             // También mantener logging local como fallback
+            // El JSON completo se envía tal cual, manteniendo todos los campos necesarios
             var localLogLevel = GetLogLevel(logEntry.LogLevel);
             var localMessage = logEntry.ToJson();
             _logger.Log(localLogLevel, "{StructuredLog}", localMessage);
@@ -251,7 +254,9 @@ namespace JonjubNet.Logging.Services
                 { "OperationStatus", "Started" }
             };
 
-            LogInformation($"Operation started: {operation}", operation, category, properties, context);
+            var logEntry = CreateLogEntry(Models.LogLevel.Information, $"Operation started: {operation}", operation, category, properties, context);
+            logEntry.EventType = Models.EventType.OperationStart;
+            LogCustom(logEntry);
         }
 
         public void LogOperationEnd(string operation, string category = "", long executionTimeMs = 0, Dictionary<string, object>? properties = null, bool success = true, Exception? exception = null)
@@ -264,14 +269,12 @@ namespace JonjubNet.Logging.Services
                 { "Success", success }
             };
 
-            if (success)
-            {
-                LogInformation($"Operation completed: {operation}", operation, category, properties, context);
-            }
-            else
-            {
-                LogError($"Operation failed: {operation}", operation, category, properties, context, exception);
-            }
+            var logLevel = success ? Models.LogLevel.Information : Models.LogLevel.Error;
+            var message = success ? $"Operation completed: {operation}" : $"Operation failed: {operation}";
+            
+            var logEntry = CreateLogEntry(logLevel, message, operation, category, properties, context, exception);
+            logEntry.EventType = Models.EventType.OperationEnd;
+            LogCustom(logEntry);
         }
 
         public void LogUserAction(string action, string entityType = "", string entityId = "", Dictionary<string, object>? properties = null)
@@ -284,7 +287,9 @@ namespace JonjubNet.Logging.Services
                 { "ActionTimestamp", DateTime.UtcNow }
             };
 
-            LogInformation($"User action: {action}", action, Models.LogCategory.UserAction, properties, context);
+            var logEntry = CreateLogEntry(Models.LogLevel.Information, $"User action: {action}", action, Models.LogCategory.UserAction, properties, context);
+            logEntry.EventType = Models.EventType.UserAction;
+            LogCustom(logEntry);
         }
 
         public void LogSecurityEvent(string eventType, string description, Dictionary<string, object>? properties = null, Exception? exception = null)
@@ -295,7 +300,9 @@ namespace JonjubNet.Logging.Services
                 { "EventTimestamp", DateTime.UtcNow }
             };
 
-            LogWarning($"Security event: {description}", eventType, Models.LogCategory.Security, properties, context, exception);
+            var logEntry = CreateLogEntry(Models.LogLevel.Warning, $"Security event: {description}", eventType, Models.LogCategory.Security, properties, context, exception);
+            logEntry.EventType = Models.EventType.SecurityEvent;
+            LogCustom(logEntry);
         }
 
         public void LogAuditEvent(string eventType, string description, string entityType = "", string entityId = "", Dictionary<string, object>? properties = null)
@@ -308,7 +315,9 @@ namespace JonjubNet.Logging.Services
                 { "AuditTimestamp", DateTime.UtcNow }
             };
 
-            LogInformation($"Audit event: {description}", eventType, Models.LogCategory.Audit, properties, context);
+            var logEntry = CreateLogEntry(Models.LogLevel.Information, $"Audit event: {description}", eventType, Models.LogCategory.Audit, properties, context);
+            logEntry.EventType = Models.EventType.AuditEvent;
+            LogCustom(logEntry);
         }
 
         private Models.StructuredLogEntry CreateLogEntry(string logLevel, string message, string operation, string category, Dictionary<string, object>? properties, Dictionary<string, object>? context, Exception? exception = null)
@@ -348,19 +357,68 @@ namespace JonjubNet.Logging.Services
                 logEntry.UserAgent = httpContext.Request.Headers["User-Agent"].ToString();
 
                 // Agregar IDs de correlación si están configurados
+                // Usar HttpContext.Items para almacenar y reutilizar los IDs en todo el request
                 if (_configuration.Correlation.EnableCorrelationId)
                 {
-                    logEntry.CorrelationId = httpContext.Request.Headers[_configuration.Correlation.CorrelationIdHeader].FirstOrDefault() ?? Guid.NewGuid().ToString();
+                    const string correlationIdKey = "JonjubNet.Logging.CorrelationId";
+                    if (!httpContext.Items.ContainsKey(correlationIdKey))
+                    {
+                        // Intentar obtener del header, si no existe generar uno nuevo
+                        var headerValue = httpContext.Request.Headers[_configuration.Correlation.CorrelationIdHeader].FirstOrDefault();
+                        var correlationId = !string.IsNullOrEmpty(headerValue) 
+                            ? headerValue 
+                            : Guid.NewGuid().ToString();
+                        
+                        // Almacenar en HttpContext.Items para reutilizar
+                        httpContext.Items[correlationIdKey] = correlationId;
+                        
+                        // También establecer en el header de respuesta para que el cliente lo reciba
+                        if (string.IsNullOrEmpty(headerValue))
+                        {
+                            httpContext.Response.Headers[_configuration.Correlation.CorrelationIdHeader] = correlationId;
+                        }
+                    }
+                    logEntry.CorrelationId = httpContext.Items[correlationIdKey]?.ToString();
                 }
 
                 if (_configuration.Correlation.EnableRequestId)
                 {
-                    logEntry.RequestId = httpContext.Request.Headers[_configuration.Correlation.RequestIdHeader].FirstOrDefault() ?? Guid.NewGuid().ToString();
+                    const string requestIdKey = "JonjubNet.Logging.RequestId";
+                    if (!httpContext.Items.ContainsKey(requestIdKey))
+                    {
+                        var headerValue = httpContext.Request.Headers[_configuration.Correlation.RequestIdHeader].FirstOrDefault();
+                        var requestId = !string.IsNullOrEmpty(headerValue) 
+                            ? headerValue 
+                            : Guid.NewGuid().ToString();
+                        
+                        httpContext.Items[requestIdKey] = requestId;
+                        
+                        if (string.IsNullOrEmpty(headerValue))
+                        {
+                            httpContext.Response.Headers[_configuration.Correlation.RequestIdHeader] = requestId;
+                        }
+                    }
+                    logEntry.RequestId = httpContext.Items[requestIdKey]?.ToString();
                 }
 
                 if (_configuration.Correlation.EnableSessionId)
                 {
-                    logEntry.SessionId = httpContext.Request.Headers[_configuration.Correlation.SessionIdHeader].FirstOrDefault() ?? Guid.NewGuid().ToString();
+                    const string sessionIdKey = "JonjubNet.Logging.SessionId";
+                    if (!httpContext.Items.ContainsKey(sessionIdKey))
+                    {
+                        var headerValue = httpContext.Request.Headers[_configuration.Correlation.SessionIdHeader].FirstOrDefault();
+                        var sessionId = !string.IsNullOrEmpty(headerValue) 
+                            ? headerValue 
+                            : Guid.NewGuid().ToString();
+                        
+                        httpContext.Items[sessionIdKey] = sessionId;
+                        
+                        if (string.IsNullOrEmpty(headerValue))
+                        {
+                            httpContext.Response.Headers[_configuration.Correlation.SessionIdHeader] = sessionId;
+                        }
+                    }
+                    logEntry.SessionId = httpContext.Items[sessionIdKey]?.ToString();
                 }
             }
 

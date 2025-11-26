@@ -33,6 +33,11 @@ namespace JonjubNet.Logging.Models
         public string Category { get; set; } = string.Empty;
 
         /// <summary>
+        /// Tipo de evento (OperationStart, OperationEnd, UserAction, SecurityEvent, AuditEvent, etc.)
+        /// </summary>
+        public string? EventType { get; set; }
+
+        /// <summary>
         /// ID del usuario
         /// </summary>
         public string UserId { get; set; } = string.Empty;
@@ -152,6 +157,7 @@ namespace JonjubNet.Logging.Models
                 LogLevel,
                 Message,
                 Category,
+                EventType,
                 UserId,
                 UserName,
                 Environment,
@@ -207,5 +213,19 @@ namespace JonjubNet.Logging.Models
         public const string Integration = "Integration";
         public const string Database = "Database";
         public const string External = "External";
+        public const string BusinessLogic = "BusinessLogic";
+    }
+
+    /// <summary>
+    /// Tipos de eventos predefinidos
+    /// </summary>
+    public static class EventType
+    {
+        public const string OperationStart = "OperationStart";
+        public const string OperationEnd = "OperationEnd";
+        public const string UserAction = "UserAction";
+        public const string SecurityEvent = "SecurityEvent";
+        public const string AuditEvent = "AuditEvent";
+        public const string Custom = "Custom";
     }
 }
