@@ -97,7 +97,10 @@ namespace JonjubNet.Logging.Services
                         CompressionType = kafkaConfig.EnableCompression
                             ? (kafkaConfig.CompressionType?.ToLower() == "gzip" ? CompressionType.Gzip : CompressionType.None)
                             : CompressionType.None,
+                        // LingerMs: Tiempo de espera antes de enviar el batch (0 = enviar inmediatamente)
+                        // Si es 0, cada mensaje se envía individualmente sin batching
                         LingerMs = kafkaConfig.LingerMs,
+                        // BatchSize: Tamaño del batch en bytes (solo aplica si LingerMs > 0)
                         BatchSize = kafkaConfig.BatchSize
                     };
 
@@ -218,16 +221,16 @@ namespace JonjubNet.Logging.Services
             if (ShouldFilterLog(logEntry))
                 return;
 
-            // Enriquecer con información del contexto
-            EnrichLogEntry(logEntry);
-
-            // Enviar a Kafka de forma asíncrona (fire-and-forget)
-            // Nota: El JSON es completo y autocontenido, no necesita LogContext
-            // El LogContext solo se usa para logs escritos directamente con _logger.Log()
+            // Enriquecer con información del contexto (de forma asíncrona pero sin bloquear)
             _ = Task.Run(async () =>
             {
                 try
                 {
+                    await EnrichLogEntryAsync(logEntry);
+                    
+                    // Enviar a Kafka de forma asíncrona (fire-and-forget)
+                    // Nota: El JSON es completo y autocontenido, no necesita LogContext
+                    // El LogContext solo se usa para logs escritos directamente con _logger.Log()
                     await SendToKafkaAsync(logEntry);
                 }
                 catch (Exception ex)
@@ -359,6 +362,7 @@ namespace JonjubNet.Logging.Services
                 "ServiceName", "Operation", "LogLevel", "Message", "Category", "EventType",
                 "UserId", "UserName", "Environment", "Version", "MachineName", "ProcessId", "ThreadId",
                 "RequestPath", "RequestMethod", "StatusCode", "ClientIp", "UserAgent",
+                "QueryString", "RequestHeaders", "ResponseHeaders", "RequestBody", "ResponseBody",
                 "CorrelationId", "RequestId", "SessionId", "Timestamp", "Exception", "StackTrace"
             };
         }
@@ -390,7 +394,7 @@ namespace JonjubNet.Logging.Services
         /// Enriquece la entrada de log con información del contexto HTTP y correlación
         /// Aplica mejores prácticas: siempre llena campos con valores por defecto cuando no hay contexto HTTP
         /// </summary>
-        private void EnrichLogEntry(Models.StructuredLogEntry logEntry)
+        private async Task EnrichLogEntryAsync(Models.StructuredLogEntry logEntry)
         {
             // Enriquecer con información del HTTP Context
             var httpContext = _httpContextAccessor?.HttpContext;
@@ -402,6 +406,40 @@ namespace JonjubNet.Logging.Services
                 logEntry.StatusCode = httpContext.Response.StatusCode;
                 logEntry.ClientIp = GetClientIpAddress(httpContext);
                 logEntry.UserAgent = httpContext.Request.Headers["User-Agent"].ToString();
+
+                // Capturar Query String si está habilitado
+                if (_configuration.Enrichment.HttpCapture.IncludeQueryString)
+                {
+                    logEntry.QueryString = httpContext.Request.QueryString.ToString();
+                }
+
+                // Capturar Headers HTTP de la petición si está habilitado
+                if (_configuration.Enrichment.HttpCapture.IncludeRequestHeaders)
+                {
+                    logEntry.RequestHeaders = CaptureRequestHeaders(httpContext);
+                }
+
+                // Capturar Headers HTTP de la respuesta si está habilitado
+                if (_configuration.Enrichment.HttpCapture.IncludeResponseHeaders)
+                {
+                    logEntry.ResponseHeaders = CaptureResponseHeaders(httpContext);
+                }
+
+                // Capturar Body de la petición si está habilitado
+                // Nota: El body solo se puede capturar si está disponible en HttpContext.Items
+                // (requiere middleware que lo capture antes)
+                if (_configuration.Enrichment.HttpCapture.IncludeRequestBody)
+                {
+                    logEntry.RequestBody = httpContext.Items["JonjubNet.Logging.RequestBody"]?.ToString();
+                }
+
+                // Capturar Body de la respuesta si está habilitado
+                // Nota: El body solo se puede capturar si está disponible en HttpContext.Items
+                // (requiere middleware que lo capture antes)
+                if (_configuration.Enrichment.HttpCapture.IncludeResponseBody)
+                {
+                    logEntry.ResponseBody = httpContext.Items["JonjubNet.Logging.ResponseBody"]?.ToString();
+                }
 
                 // Agregar IDs de correlación si están configurados
                 // Usar HttpContext.Items para almacenar y reutilizar los IDs en todo el request
@@ -477,6 +515,32 @@ namespace JonjubNet.Logging.Services
                 logEntry.StatusCode = 0; // 0 indica que no hay contexto HTTP
                 logEntry.ClientIp = "N/A";
                 logEntry.UserAgent = "N/A";
+                
+                // Campos HTTP adicionales cuando no hay HttpContext
+                if (_configuration.Enrichment.HttpCapture.IncludeQueryString)
+                {
+                    logEntry.QueryString = null;
+                }
+                
+                if (_configuration.Enrichment.HttpCapture.IncludeRequestHeaders)
+                {
+                    logEntry.RequestHeaders = null;
+                }
+                
+                if (_configuration.Enrichment.HttpCapture.IncludeResponseHeaders)
+                {
+                    logEntry.ResponseHeaders = null;
+                }
+                
+                if (_configuration.Enrichment.HttpCapture.IncludeRequestBody)
+                {
+                    logEntry.RequestBody = null;
+                }
+                
+                if (_configuration.Enrichment.HttpCapture.IncludeResponseBody)
+                {
+                    logEntry.ResponseBody = null;
+                }
 
                 // Generar IDs de correlación incluso sin HttpContext si están habilitados
                 // Esto permite rastrear logs fuera de contexto HTTP
@@ -788,5 +852,49 @@ namespace JonjubNet.Logging.Services
 
             return context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
         }
+
+        /// <summary>
+        /// Captura los headers HTTP de la petición, excluyendo headers sensibles
+        /// </summary>
+        private Dictionary<string, string> CaptureRequestHeaders(HttpContext context)
+        {
+            var headers = new Dictionary<string, string>();
+            var sensitiveHeaders = _configuration.Enrichment.HttpCapture.SensitiveHeaders
+                .Select(h => h.ToLowerInvariant())
+                .ToHashSet();
+
+            foreach (var header in context.Request.Headers)
+            {
+                var headerName = header.Key;
+                // Excluir headers sensibles
+                if (!sensitiveHeaders.Contains(headerName.ToLowerInvariant()))
+                {
+                    headers[headerName] = string.Join(", ", header.Value.ToArray());
+                }
+                else
+                {
+                    // Mostrar que el header existe pero no su valor (por seguridad)
+                    headers[headerName] = "[REDACTED]";
+                }
+            }
+
+            return headers;
+        }
+
+        /// <summary>
+        /// Captura los headers HTTP de la respuesta
+        /// </summary>
+        private Dictionary<string, string> CaptureResponseHeaders(HttpContext context)
+        {
+            var headers = new Dictionary<string, string>();
+
+            foreach (var header in context.Response.Headers)
+            {
+                headers[header.Key] = string.Join(", ", header.Value.ToArray());
+            }
+
+            return headers;
+        }
+
     }
 }

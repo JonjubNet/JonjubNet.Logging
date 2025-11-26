@@ -138,6 +138,31 @@ namespace JonjubNet.Logging.Models
         public string? SessionId { get; set; }
 
         /// <summary>
+        /// Query string de la petición HTTP
+        /// </summary>
+        public string? QueryString { get; set; }
+
+        /// <summary>
+        /// Headers HTTP de la petición (excluyendo headers sensibles como Authorization)
+        /// </summary>
+        public Dictionary<string, string>? RequestHeaders { get; set; }
+
+        /// <summary>
+        /// Headers HTTP de la respuesta
+        /// </summary>
+        public Dictionary<string, string>? ResponseHeaders { get; set; }
+
+        /// <summary>
+        /// Body de la petición HTTP (solo si está habilitado en configuración)
+        /// </summary>
+        public string? RequestBody { get; set; }
+
+        /// <summary>
+        /// Body de la respuesta HTTP (solo si está habilitado en configuración)
+        /// </summary>
+        public string? ResponseBody { get; set; }
+
+        /// <summary>
         /// Convierte la entrada de log a JSON
         /// </summary>
         /// <returns>JSON string válido y bien formateado</returns>
@@ -196,7 +221,14 @@ namespace JonjubNet.Logging.Models
                 // IDs de correlación
                 CorrelationId,
                 RequestId,
-                SessionId
+                SessionId,
+                
+                // Información HTTP adicional
+                QueryString,
+                RequestHeaders,
+                ResponseHeaders,
+                RequestBody,
+                ResponseBody
             };
 
             return JsonSerializer.Serialize(logObject, options);

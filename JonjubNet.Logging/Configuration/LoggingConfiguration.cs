@@ -124,6 +124,58 @@ namespace JonjubNet.Logging.Configuration
         public bool IncludeMachineName { get; set; } = true;
         public bool IncludeServiceInfo { get; set; } = true;
         public Dictionary<string, object> StaticProperties { get; set; } = new();
+        
+        /// <summary>
+        /// Configuración de captura de datos HTTP
+        /// </summary>
+        public LoggingHttpCaptureConfiguration HttpCapture { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Configuración de captura de datos HTTP (headers, body, etc.)
+    /// </summary>
+    public class LoggingHttpCaptureConfiguration
+    {
+        /// <summary>
+        /// Capturar headers HTTP de la petición
+        /// </summary>
+        public bool IncludeRequestHeaders { get; set; } = true;
+        
+        /// <summary>
+        /// Capturar headers HTTP de la respuesta
+        /// </summary>
+        public bool IncludeResponseHeaders { get; set; } = false;
+        
+        /// <summary>
+        /// Capturar query string de la petición
+        /// </summary>
+        public bool IncludeQueryString { get; set; } = true;
+        
+        /// <summary>
+        /// Capturar body de la petición HTTP
+        /// </summary>
+        public bool IncludeRequestBody { get; set; } = false;
+        
+        /// <summary>
+        /// Capturar body de la respuesta HTTP
+        /// </summary>
+        public bool IncludeResponseBody { get; set; } = false;
+        
+        /// <summary>
+        /// Tamaño máximo del body a capturar (en bytes). Si el body es mayor, se trunca.
+        /// </summary>
+        public int MaxBodySizeBytes { get; set; } = 10240; // 10KB por defecto
+        
+        /// <summary>
+        /// Headers sensibles que NO deben capturarse (por seguridad)
+        /// </summary>
+        public List<string> SensitiveHeaders { get; set; } = new() 
+        { 
+            "Authorization", 
+            "Cookie", 
+            "X-API-Key", 
+            "X-Auth-Token" 
+        };
     }
 
     /// <summary>

@@ -62,6 +62,22 @@ app.Run();
       "EnableCorrelationId": true,
       "EnableRequestId": true,
       "EnableSessionId": true
+    },
+    "Enrichment": {
+      "HttpCapture": {
+        "IncludeRequestHeaders": true,
+        "IncludeResponseHeaders": false,
+        "IncludeQueryString": true,
+        "IncludeRequestBody": false,
+        "IncludeResponseBody": false,
+        "MaxBodySizeBytes": 10240,
+        "SensitiveHeaders": [
+          "Authorization",
+          "Cookie",
+          "X-API-Key",
+          "X-Auth-Token"
+        ]
+      }
     }
   }
 }
@@ -357,13 +373,18 @@ builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.C
 
 ### Campos HTTP (si hay HttpContext)
 
-| Campo | Fuente | Valor sin HttpContext |
-|-------|--------|----------------------|
-| `RequestPath` | HttpContext | `"N/A"` |
-| `RequestMethod` | HttpContext | `"N/A"` |
-| `StatusCode` | HttpContext | `0` |
-| `ClientIp` | Headers HTTP | `"N/A"` |
-| `UserAgent` | Headers HTTP | `"N/A"` |
+| Campo | Fuente | Valor sin HttpContext | Configuración |
+|-------|--------|----------------------|---------------|
+| `RequestPath` | HttpContext | `"N/A"` | Siempre disponible |
+| `RequestMethod` | HttpContext | `"N/A"` | Siempre disponible |
+| `StatusCode` | HttpContext | `0` | Siempre disponible |
+| `ClientIp` | Headers HTTP | `"N/A"` | Siempre disponible |
+| `UserAgent` | Headers HTTP | `"N/A"` | Siempre disponible |
+| `QueryString` | HttpContext.Request.QueryString | `null` | `IncludeQueryString = true` (por defecto) |
+| `RequestHeaders` | HttpContext.Request.Headers | `null` | `IncludeRequestHeaders = true` (por defecto) |
+| `ResponseHeaders` | HttpContext.Response.Headers | `null` | `IncludeResponseHeaders = false` (por defecto) |
+| `RequestBody` | HttpContext.Items | `null` | `IncludeRequestBody = false` (requiere middleware) |
+| `ResponseBody` | HttpContext.Items | `null` | `IncludeResponseBody = false` (requiere middleware) |
 
 ### Campos de Correlación (si están habilitados)
 
@@ -381,6 +402,81 @@ builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.C
 |-------|--------|-------------------|
 | `UserId` | ICurrentUserService | `"Anonymous"` |
 | `UserName` | ICurrentUserService | `"Anonymous"` |
+
+## Captura de Datos HTTP (Headers, Query String, Body)
+
+El componente puede capturar información adicional de las peticiones HTTP para análisis y debugging.
+
+### Configuración
+
+```json
+{
+  "StructuredLogging": {
+    "Enrichment": {
+      "HttpCapture": {
+        "IncludeRequestHeaders": true,
+        "IncludeResponseHeaders": false,
+        "IncludeQueryString": true,
+        "IncludeRequestBody": false,
+        "IncludeResponseBody": false,
+        "MaxBodySizeBytes": 10240,
+        "SensitiveHeaders": [
+          "Authorization",
+          "Cookie",
+          "X-API-Key",
+          "X-Auth-Token"
+        ]
+      }
+    }
+  }
+}
+```
+
+### Opciones de Configuración
+
+| Opción | Descripción | Valor por Defecto |
+|--------|-------------|-------------------|
+| `IncludeRequestHeaders` | Capturar headers HTTP de la petición | `true` |
+| `IncludeResponseHeaders` | Capturar headers HTTP de la respuesta | `false` |
+| `IncludeQueryString` | Capturar query string de la URL | `true` |
+| `IncludeRequestBody` | Capturar body de la petición | `false` |
+| `IncludeResponseBody` | Capturar body de la respuesta | `false` |
+| `MaxBodySizeBytes` | Tamaño máximo del body a capturar (en bytes) | `10240` (10KB) |
+| `SensitiveHeaders` | Lista de headers sensibles que se ocultan | `["Authorization", "Cookie", "X-API-Key", "X-Auth-Token"]` |
+
+### Seguridad: Headers Sensibles
+
+Los headers configurados en `SensitiveHeaders` se muestran como `"[REDACTED]"` en los logs para proteger información sensible como tokens y credenciales.
+
+**Ejemplo:**
+```json
+{
+  "requestHeaders": {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "Authorization": "[REDACTED]",
+    "X-API-Key": "[REDACTED]"
+  }
+}
+```
+
+### Captura de Request Body y Response Body
+
+Para capturar los bodies de las peticiones y respuestas, necesitas un middleware que los lea y los almacene en `HttpContext.Items`:
+
+```csharp
+// Ejemplo de middleware para capturar Request Body
+app.Use(async (context, next) =>
+{
+    context.Request.EnableBuffering();
+    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+    context.Request.Body.Position = 0;
+    context.Items["JonjubNet.Logging.RequestBody"] = body;
+    await next();
+});
+```
+
+**Nota:** Los bodies se capturan desde `HttpContext.Items["JonjubNet.Logging.RequestBody"]` y `HttpContext.Items["JonjubNet.Logging.ResponseBody"]`.
 
 ## Ejemplo de Log Generado
 
@@ -417,6 +513,16 @@ builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.C
   "statusCode": 200,
   "clientIp": "192.168.1.100",
   "userAgent": "Mozilla/5.0...",
+  "queryString": "?page=1&limit=10",
+  "requestHeaders": {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "Authorization": "[REDACTED]",
+    "X-Requested-With": "XMLHttpRequest"
+  },
+  "responseHeaders": null,
+  "requestBody": null,
+  "responseBody": null,
   "correlationId": "d8284def-e59c-4d9c-a814-b05ea8319b03",
   "requestId": "27473e7d-6afc-4f50-8165-3ec89ccffcc2",
   "sessionId": "62ca01d0-bd52-468d-b597-2a790b12f124"
@@ -464,6 +570,20 @@ builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.C
       "StaticProperties": {
         "Application": "MiAplicacion",
         "Region": "us-east-1"
+      },
+      "HttpCapture": {
+        "IncludeRequestHeaders": true,
+        "IncludeResponseHeaders": false,
+        "IncludeQueryString": true,
+        "IncludeRequestBody": false,
+        "IncludeResponseBody": false,
+        "MaxBodySizeBytes": 10240,
+        "SensitiveHeaders": [
+          "Authorization",
+          "Cookie",
+          "X-API-Key",
+          "X-Auth-Token"
+        ]
       }
     },
     "Correlation": {
@@ -503,6 +623,16 @@ builder.Services.AddStructuredLoggingInfrastructure<CustomUserService>(builder.C
 ### `CorrelationId`, `RequestId`, `SessionId` están en `null`
 - Habilita en `appsettings.json`: `"EnableCorrelationId": true`, etc.
 - Una vez habilitados, se generan automáticamente incluso sin HttpContext
+
+### `QueryString` o `RequestHeaders` no aparecen en los logs
+- Verifica que `IncludeQueryString` o `IncludeRequestHeaders` estén en `true` en la configuración
+- Por defecto están habilitados (`IncludeQueryString = true`, `IncludeRequestHeaders = true`)
+- Si están deshabilitados, habilítalos en `Enrichment.HttpCapture`
+
+### `RequestBody` o `ResponseBody` están siempre en `null`
+- Estos campos requieren un middleware que capture los bodies y los almacene en `HttpContext.Items`
+- Ver la sección "Captura de Request Body y Response Body" para un ejemplo de middleware
+- Los bodies se capturan desde `HttpContext.Items["JonjubNet.Logging.RequestBody"]` y `HttpContext.Items["JonjubNet.Logging.ResponseBody"]`
 
 ### Kafka no envía mensajes
 - Verifica que `"Enabled": true` en `KafkaProducer`
