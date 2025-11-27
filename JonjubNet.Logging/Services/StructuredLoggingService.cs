@@ -2,6 +2,7 @@ using JonjubNet.Logging.Configuration;
 using JonjubNet.Logging.Interfaces;
 using JonjubNet.Logging.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text;
@@ -21,7 +22,7 @@ namespace JonjubNet.Logging.Services
     {
         private readonly ILogger<StructuredLoggingService> _logger;
         private readonly LoggingConfiguration _configuration;
-        private readonly ICurrentUserService? _currentUserService;
+        private readonly IServiceProvider _serviceProvider;
         private readonly IHttpContextAccessor? _httpContextAccessor;
         private readonly IProducer<Null, string>? _kafkaProducer;
         private readonly KafkaConnectionType _connectionType;
@@ -42,12 +43,12 @@ namespace JonjubNet.Logging.Services
         public StructuredLoggingService(
             ILogger<StructuredLoggingService> logger,
             IOptions<LoggingConfiguration> configuration,
-            ICurrentUserService? currentUserService = null,
+            IServiceProvider serviceProvider,
             IHttpContextAccessor? httpContextAccessor = null)
         {
             _logger = logger;
             _configuration = configuration.Value;
-            _currentUserService = currentUserService;
+            _serviceProvider = serviceProvider;
             _httpContextAccessor = httpContextAccessor;
 
             // Inicializar conexión a Kafka si está habilitado
@@ -64,6 +65,27 @@ namespace JonjubNet.Logging.Services
                 _connectionType = KafkaConnectionType.None;
                 _kafkaProducer = null;
                 _logger.LogWarning("Kafka Producer está deshabilitado en la configuración");
+            }
+        }
+
+        /// <summary>
+        /// Resuelve ICurrentUserService dinámicamente desde el ServiceProvider
+        /// Esto permite mantener el scope correcto por request aunque el servicio principal sea Singleton
+        /// </summary>
+        private ICurrentUserService? GetCurrentUserService()
+        {
+            try
+            {
+                // Intentar resolver desde el ServiceProvider actual
+                // Si estamos en un scope HTTP, obtendrá el servicio correcto para ese request
+                return _serviceProvider.GetService<ICurrentUserService>();
+            }
+            catch (Exception ex)
+            {
+                // Si no hay scope disponible o hay algún error, retornar null
+                // Esto es seguro porque el código maneja null correctamente
+                _logger.LogDebug(ex, "No se pudo resolver ICurrentUserService. Puede ser normal si no hay scope HTTP activo.");
+                return null;
             }
         }
 
@@ -364,8 +386,11 @@ namespace JonjubNet.Logging.Services
                 
                 try
                 {
-                    userId = _currentUserService?.GetCurrentUserId() ?? "Anonymous";
-                    userName = _currentUserService?.GetCurrentUserName() ?? "Anonymous";
+                    // Resolver ICurrentUserService dinámicamente para mantener el scope correcto por request
+                    // Esto es necesario porque el servicio es Singleton pero ICurrentUserService es Scoped
+                    var currentUserService = GetCurrentUserService();
+                    userId = currentUserService?.GetCurrentUserId() ?? "Anonymous";
+                    userName = currentUserService?.GetCurrentUserName() ?? "Anonymous";
                 }
                 catch (Exception ex)
                 {

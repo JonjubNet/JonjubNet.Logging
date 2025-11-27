@@ -47,13 +47,13 @@ namespace JonjubNet.Logging
                 services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
             }
 
-            // Registrar el servicio de logging estructurado
-            // Usar registro directo en lugar de factory para evitar problemas de validación durante el build
-            // El servicio se resolverá correctamente dentro de un scope HTTP válido en runtime
+            // Registrar el servicio de logging estructurado como Singleton
+            // Esto permite resolverlo desde root provider sin problemas de scope
+            // IHttpContextAccessor es thread-safe y puede ser usado desde Singleton
             // Solo registrar si no está ya registrado
             if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
             {
-                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+                services.AddSingleton<IStructuredLoggingService, StructuredLoggingService>();
             }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
@@ -123,13 +123,13 @@ namespace JonjubNet.Logging
                 services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
             }
 
-            // Registrar el servicio de logging estructurado
-            // Usar registro directo en lugar de factory para evitar problemas de validación durante el build
-            // El servicio se resolverá correctamente dentro de un scope HTTP válido en runtime
+            // Registrar el servicio de logging estructurado como Singleton
+            // Esto permite resolverlo desde root provider sin problemas de scope
+            // IHttpContextAccessor es thread-safe y puede ser usado desde Singleton
             // Solo registrar si no está ya registrado
             if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
             {
-                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+                services.AddSingleton<IStructuredLoggingService, StructuredLoggingService>();
             }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
