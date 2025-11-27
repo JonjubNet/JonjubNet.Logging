@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
+using System.Linq;
 using System.Reflection;
 
 namespace JonjubNet.Logging
@@ -24,17 +25,33 @@ namespace JonjubNet.Logging
             
             // Registrar IHttpContextAccessor para obtener información HTTP (RequestPath, RequestMethod, etc.)
             // Esto es necesario para llenar campos HTTP en los logs
-            services.AddHttpContextAccessor();
+            // Solo registrar si no está ya registrado
+            if (!services.Any(s => s.ServiceType == typeof(IHttpContextAccessor)))
+            {
+                services.AddHttpContextAccessor();
+            }
             
-            // Registrar el servicio de usuario por defecto
-            services.AddScoped<ICurrentUserService, DefaultCurrentUserService>();
+            // Registrar el servicio de usuario por defecto solo si no está ya registrado
+            // Esto permite que las aplicaciones proporcionen su propia implementación
+            if (!services.Any(s => s.ServiceType == typeof(ICurrentUserService)))
+            {
+                services.AddScoped<ICurrentUserService, DefaultCurrentUserService>();
+            }
 
             // Registrar el servicio de categorización de errores genérico como Singleton
             // Es thread-safe (usa ConcurrentDictionary) y puede ser compartido entre requests
-            services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
+            // Solo registrar si no está ya registrado
+            if (!services.Any(s => s.ServiceType == typeof(IErrorCategorizationService)))
+            {
+                services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
+            }
 
             // Registrar el servicio de logging estructurado
-            services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+            // Solo registrar si no está ya registrado
+            if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
+            {
+                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+            }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
             // Este behavior captura automáticamente todas las operaciones sin código manual
@@ -82,17 +99,33 @@ namespace JonjubNet.Logging
             
             // Registrar IHttpContextAccessor para obtener información HTTP (RequestPath, RequestMethod, etc.)
             // Esto es necesario para llenar campos HTTP en los logs
-            services.AddHttpContextAccessor();
+            // Solo registrar si no está ya registrado
+            if (!services.Any(s => s.ServiceType == typeof(IHttpContextAccessor)))
+            {
+                services.AddHttpContextAccessor();
+            }
             
             // Registrar el servicio de usuario personalizado
-            services.AddScoped<ICurrentUserService, TUserService>();
+            // Solo registrar si no está ya registrado
+            if (!services.Any(s => s.ServiceType == typeof(ICurrentUserService)))
+            {
+                services.AddScoped<ICurrentUserService, TUserService>();
+            }
 
             // Registrar el servicio de categorización de errores genérico como Singleton
             // Es thread-safe (usa ConcurrentDictionary) y puede ser compartido entre requests
-            services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
+            // Solo registrar si no está ya registrado
+            if (!services.Any(s => s.ServiceType == typeof(IErrorCategorizationService)))
+            {
+                services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
+            }
 
             // Registrar el servicio de logging estructurado
-            services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+            // Solo registrar si no está ya registrado
+            if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
+            {
+                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+            }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
             // Este behavior captura automáticamente todas las operaciones sin código manual
