@@ -1,6 +1,7 @@
 using JonjubNet.Logging.Configuration;
 using JonjubNet.Logging.Interfaces;
 using JonjubNet.Logging.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
