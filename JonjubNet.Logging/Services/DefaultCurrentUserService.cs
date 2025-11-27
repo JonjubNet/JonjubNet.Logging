@@ -1,3 +1,6 @@
+using JonjubNet.Logging.Interfaces;
+using System.Collections.Generic;
+
 namespace JonjubNet.Logging.Services
 {
     /// <summary>

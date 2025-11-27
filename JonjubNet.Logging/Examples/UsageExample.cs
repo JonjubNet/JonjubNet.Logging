@@ -1,3 +1,4 @@
+using JonjubNet.Logging.Interfaces;
 using JonjubNet.Logging.Models;
 
 namespace JonjubNet.Logging.Examples

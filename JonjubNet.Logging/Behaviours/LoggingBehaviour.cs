@@ -1,6 +1,7 @@
 #if MEDIATR_AVAILABLE
 using MediatR;
 #endif
+using JonjubNet.Logging.Interfaces;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Text.Json;
