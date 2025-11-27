@@ -1,4 +1,4 @@
-namespace JonjubNet.Logging.Interfaces
+namespace JonjubNet.Logging
 {
     /// <summary>
     /// Interfaz para obtener información del usuario actual

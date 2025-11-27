@@ -1,5 +1,3 @@
-using JonjubNet.Logging.Interfaces;
-
 namespace JonjubNet.Logging.Services
 {
     /// <summary>

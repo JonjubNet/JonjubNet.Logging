@@ -4,7 +4,6 @@ using MediatR;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Text.Json;
-using JonjubNet.Logging.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace JonjubNet.Logging.Behaviours

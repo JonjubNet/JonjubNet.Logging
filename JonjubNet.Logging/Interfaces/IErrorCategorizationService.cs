@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace JonjubNet.Logging.Interfaces
+namespace JonjubNet.Logging
 {
     /// <summary>
     /// Servicio genérico para categorizar y determinar el nivel de log apropiado para diferentes tipos de errores

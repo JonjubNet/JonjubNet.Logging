@@ -1,4 +1,3 @@
-using JonjubNet.Logging.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 

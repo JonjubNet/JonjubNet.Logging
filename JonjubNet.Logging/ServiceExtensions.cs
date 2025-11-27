@@ -1,5 +1,4 @@
 using JonjubNet.Logging.Configuration;
-using JonjubNet.Logging.Interfaces;
 using JonjubNet.Logging.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

@@ -296,7 +296,7 @@ Para que `UserId` y `UserName` se llenen con datos reales en lugar de "Anonymous
 ### Implementación
 
 ```csharp
-using JonjubNet.Logging.Interfaces;
+using JonjubNet.Logging;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 
@@ -622,7 +622,7 @@ Un middleware global captura **todos los errores no manejados** de la aplicació
 
 ```csharp
 // Program.cs o Startup.cs
-using JonjubNet.Logging.Interfaces;
+using JonjubNet.Logging;
 
 var app = builder.Build();
 

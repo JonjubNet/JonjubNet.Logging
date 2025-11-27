@@ -1,5 +1,4 @@
 using JonjubNet.Logging.Configuration;
-using JonjubNet.Logging.Interfaces;
 using JonjubNet.Logging.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;

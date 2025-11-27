@@ -1,4 +1,3 @@
-using JonjubNet.Logging.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -100,17 +99,25 @@ namespace JonjubNet.Logging.Services
 
             // Mapear tipos estándar de .NET a nombres más descriptivos
             // IMPORTANTE: Los tipos más específicos (derivados) deben ir antes que los tipos base
-            return exception switch
+            switch (exception)
             {
-                OutOfMemoryException _ => "OutOfMemory",
-                StackOverflowException _ => "StackOverflow",
-                System.Threading.ThreadAbortException _ => "ThreadAbort",
-                ArgumentNullException _ => "ArgumentNull",  // Debe ir antes de ArgumentException
-                ArgumentException _ => "Argument",
-                InvalidOperationException _ => "InvalidOperation",
-                KeyNotFoundException _ => "NotFound",
-                _ => typeName
-            };
+                case OutOfMemoryException:
+                    return "OutOfMemory";
+                case StackOverflowException:
+                    return "StackOverflow";
+                case System.Threading.ThreadAbortException:
+                    return "ThreadAbort";
+                case ArgumentNullException:
+                    return "ArgumentNull";
+                case ArgumentException:
+                    return "Argument";
+                case InvalidOperationException:
+                    return "InvalidOperation";
+                case KeyNotFoundException:
+                    return "NotFound";
+                default:
+                    return typeName;
+            }
         }
 
         public void RegisterFunctionalErrorType(Type exceptionType)

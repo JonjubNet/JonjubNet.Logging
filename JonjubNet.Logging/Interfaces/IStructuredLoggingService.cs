@@ -1,4 +1,4 @@
-namespace JonjubNet.Logging.Interfaces
+namespace JonjubNet.Logging
 {
     /// <summary>
     /// Interfaz para el servicio de logging estructurado
