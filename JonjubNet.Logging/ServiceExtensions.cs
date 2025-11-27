@@ -1,7 +1,6 @@
 using JonjubNet.Logging.Configuration;
 using JonjubNet.Logging.Interfaces;
 using JonjubNet.Logging.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -47,11 +46,25 @@ namespace JonjubNet.Logging
                 services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
             }
 
-            // Registrar el servicio de logging estructurado
+            // Registrar el servicio de logging estructurado usando factory pattern
+            // Esto permite que el servicio se resuelva dentro de un scope válido
             // Solo registrar si no está ya registrado
             if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
             {
-                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+                services.AddScoped<IStructuredLoggingService>(serviceProvider =>
+                {
+                    // Resolver dependencias dentro del scope actual
+                    var logger = serviceProvider.GetRequiredService<ILogger<StructuredLoggingService>>();
+                    var configuration = serviceProvider.GetRequiredService<IOptions<LoggingConfiguration>>();
+                    var currentUserService = serviceProvider.GetService<ICurrentUserService>();
+                    var httpContextAccessor = serviceProvider.GetService<IHttpContextAccessor>();
+                    
+                    return new StructuredLoggingService(
+                        logger,
+                        configuration,
+                        currentUserService,
+                        httpContextAccessor);
+                });
             }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
@@ -121,11 +134,25 @@ namespace JonjubNet.Logging
                 services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
             }
 
-            // Registrar el servicio de logging estructurado
+            // Registrar el servicio de logging estructurado usando factory pattern
+            // Esto permite que el servicio se resuelva dentro de un scope válido
             // Solo registrar si no está ya registrado
             if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
             {
-                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
+                services.AddScoped<IStructuredLoggingService>(serviceProvider =>
+                {
+                    // Resolver dependencias dentro del scope actual
+                    var logger = serviceProvider.GetRequiredService<ILogger<StructuredLoggingService>>();
+                    var configuration = serviceProvider.GetRequiredService<IOptions<LoggingConfiguration>>();
+                    var currentUserService = serviceProvider.GetService<ICurrentUserService>();
+                    var httpContextAccessor = serviceProvider.GetService<IHttpContextAccessor>();
+                    
+                    return new StructuredLoggingService(
+                        logger,
+                        configuration,
+                        currentUserService,
+                        httpContextAccessor);
+                });
             }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
