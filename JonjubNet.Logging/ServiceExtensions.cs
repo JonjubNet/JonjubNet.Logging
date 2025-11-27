@@ -47,25 +47,13 @@ namespace JonjubNet.Logging
                 services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
             }
 
-            // Registrar el servicio de logging estructurado usando factory pattern
-            // Esto permite que el servicio se resuelva dentro de un scope válido
+            // Registrar el servicio de logging estructurado
+            // Usar registro directo en lugar de factory para evitar problemas de validación durante el build
+            // El servicio se resolverá correctamente dentro de un scope HTTP válido en runtime
             // Solo registrar si no está ya registrado
             if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
             {
-                services.AddScoped<IStructuredLoggingService>(serviceProvider =>
-                {
-                    // Resolver dependencias dentro del scope actual
-                    var logger = serviceProvider.GetRequiredService<ILogger<StructuredLoggingService>>();
-                    var configuration = serviceProvider.GetRequiredService<IOptions<LoggingConfiguration>>();
-                    var currentUserService = serviceProvider.GetService<ICurrentUserService>();
-                    var httpContextAccessor = serviceProvider.GetService<IHttpContextAccessor>();
-                    
-                    return new StructuredLoggingService(
-                        logger,
-                        configuration,
-                        currentUserService,
-                        httpContextAccessor);
-                });
+                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
             }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
@@ -135,25 +123,13 @@ namespace JonjubNet.Logging
                 services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
             }
 
-            // Registrar el servicio de logging estructurado usando factory pattern
-            // Esto permite que el servicio se resuelva dentro de un scope válido
+            // Registrar el servicio de logging estructurado
+            // Usar registro directo en lugar de factory para evitar problemas de validación durante el build
+            // El servicio se resolverá correctamente dentro de un scope HTTP válido en runtime
             // Solo registrar si no está ya registrado
             if (!services.Any(s => s.ServiceType == typeof(IStructuredLoggingService)))
             {
-                services.AddScoped<IStructuredLoggingService>(serviceProvider =>
-                {
-                    // Resolver dependencias dentro del scope actual
-                    var logger = serviceProvider.GetRequiredService<ILogger<StructuredLoggingService>>();
-                    var configuration = serviceProvider.GetRequiredService<IOptions<LoggingConfiguration>>();
-                    var currentUserService = serviceProvider.GetService<ICurrentUserService>();
-                    var httpContextAccessor = serviceProvider.GetService<IHttpContextAccessor>();
-                    
-                    return new StructuredLoggingService(
-                        logger,
-                        configuration,
-                        currentUserService,
-                        httpContextAccessor);
-                });
+                services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
             }
 
             // Registrar el LoggingBehaviour automático para MediatR (opcional, solo si MediatR está disponible)
