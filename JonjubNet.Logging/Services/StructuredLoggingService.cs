@@ -212,41 +212,65 @@ namespace JonjubNet.Logging.Services
             LogCustom(CreateLogEntry(Models.LogLevel.Trace, message, operation, category, properties, context));
         }
 
+        /// <summary>
+        /// Registra un log personalizado
+        /// IMPORTANTE: Este método NUNCA lanza excepciones para no afectar la aplicación
+        /// Todos los errores del componente se manejan internamente
+        /// </summary>
         public void LogCustom(Models.StructuredLogEntry logEntry)
         {
-            if (!_configuration.Enabled)
-                return;
-
-            // Aplicar filtros
-            if (ShouldFilterLog(logEntry))
-                return;
-
-            // Enriquecer con información del contexto (de forma asíncrona pero sin bloquear)
-            _ = Task.Run(async () =>
+            // Este método nunca debe lanzar excepciones - todos los errores se manejan internamente
+            try
             {
+                if (!_configuration.Enabled)
+                    return;
+
+                // Aplicar filtros
+                if (ShouldFilterLog(logEntry))
+                    return;
+
+                // También mantener logging local como fallback (siempre se ejecuta)
+                // El JSON completo se envía tal cual, manteniendo todos los campos necesarios
                 try
                 {
-                    await EnrichLogEntryAsync(logEntry);
-                    
-                    // Enviar a Kafka de forma asíncrona (fire-and-forget)
-                    // Nota: El JSON es completo y autocontenido, no necesita LogContext
-                    // El LogContext solo se usa para logs escritos directamente con _logger.Log()
-                    await SendToKafkaAsync(logEntry);
+                    var localLogLevel = GetLogLevel(logEntry.LogLevel);
+                    var localMessage = logEntry.ToJson();
+                    _logger.Log(localLogLevel, "{StructuredLog}", localMessage);
                 }
                 catch (Exception ex)
                 {
-                    // Fallback: log local si Kafka falla
-                    var logLevel = GetLogLevel(logEntry.LogLevel);
-                    var structuredMessage = logEntry.ToJson();
-                    _logger.LogError(ex, "Error sending log to Kafka. Log: {StructuredLog}", structuredMessage);
+                    // Error crítico interno del componente al serializar/logear localmente
+                    // Registrar error mínimo sin afectar la aplicación
+                    _logger.LogError(ex, "Error crítico interno del componente al registrar log localmente. Mensaje: {Message}", 
+                        logEntry.Message ?? "N/A");
                 }
-            });
 
-            // También mantener logging local como fallback
-            // El JSON completo se envía tal cual, manteniendo todos los campos necesarios
-            var localLogLevel = GetLogLevel(logEntry.LogLevel);
-            var localMessage = logEntry.ToJson();
-            _logger.Log(localLogLevel, "{StructuredLog}", localMessage);
+                // Enriquecer con información del contexto y enviar a Kafka (de forma asíncrona, fire-and-forget)
+                // Nota: El JSON es completo y autocontenido, no necesita LogContext
+                // El LogContext solo se usa para logs escritos directamente con _logger.Log()
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await EnrichLogEntryAsync(logEntry);
+                        
+                        // Enviar a Kafka de forma asíncrona (fire-and-forget)
+                        await SendToKafkaAsync(logEntry);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Error interno del componente al enriquecer o enviar a Kafka
+                        // Registrar error del componente sin afectar la aplicación
+                        await HandleComponentErrorAsync(ex, logEntry, "Error interno del componente al procesar log");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // Error crítico interno del componente en LogCustom - nunca debe llegar aquí
+                // Pero por seguridad, capturamos cualquier error para no afectar la aplicación
+                _logger.LogError(ex, "Error crítico interno del componente en LogCustom. Este error no debería ocurrir.");
+            }
         }
 
         public void LogOperationStart(string operation, string category = "", Dictionary<string, object>? properties = null)
@@ -323,32 +347,78 @@ namespace JonjubNet.Logging.Services
             LogCustom(logEntry);
         }
 
+        /// <summary>
+        /// Crea una entrada de log estructurado
+        /// Maneja errores internos del componente sin afectar la aplicación
+        /// </summary>
         private Models.StructuredLogEntry CreateLogEntry(string logLevel, string message, string operation, string category, Dictionary<string, object>? properties, Dictionary<string, object>? context, Exception? exception = null)
         {
-            // Filtrar campos duplicados de properties que ya existen en el nivel raíz
-            // Esto evita duplicación de datos según mejores prácticas de logging estructurado
-            var filteredProperties = FilterDuplicateProperties(properties);
-
-            return new Models.StructuredLogEntry
+            try
             {
-                ServiceName = _configuration.ServiceName,
-                Operation = operation,
-                LogLevel = logLevel,
-                Message = message,
-                Category = category,
-                UserId = _currentUserService?.GetCurrentUserId() ?? "Anonymous",
-                UserName = _currentUserService?.GetCurrentUserName() ?? "Anonymous",
-                Environment = _configuration.Environment,
-                Version = _configuration.Version,
-                MachineName = Environment.MachineName,
-                ProcessId = Environment.ProcessId.ToString(),
-                ThreadId = Environment.CurrentManagedThreadId.ToString(),
-                Properties = filteredProperties,
-                Context = context ?? new Dictionary<string, object>(),
-                Exception = exception,
-                StackTrace = exception?.StackTrace,
-                Timestamp = DateTime.UtcNow
-            };
+                // Filtrar campos duplicados de properties que ya existen en el nivel raíz
+                // Esto evita duplicación de datos según mejores prácticas de logging estructurado
+                var filteredProperties = FilterDuplicateProperties(properties);
+
+                string userId = "Anonymous";
+                string userName = "Anonymous";
+                
+                try
+                {
+                    userId = _currentUserService?.GetCurrentUserId() ?? "Anonymous";
+                    userName = _currentUserService?.GetCurrentUserName() ?? "Anonymous";
+                }
+                catch (Exception ex)
+                {
+                    // Error interno del componente al obtener usuario - usar valores por defecto
+                    _logger.LogWarning(ex, "Error interno del componente al obtener información del usuario. Usando valores por defecto.");
+                }
+
+                return new Models.StructuredLogEntry
+                {
+                    ServiceName = _configuration.ServiceName ?? "Unknown",
+                    Operation = operation ?? string.Empty,
+                    LogLevel = logLevel ?? Models.LogLevel.Information,
+                    Message = message ?? string.Empty,
+                    Category = category ?? Models.LogCategory.General,
+                    UserId = userId,
+                    UserName = userName,
+                    Environment = _configuration.Environment ?? "Unknown",
+                    Version = _configuration.Version ?? "Unknown",
+                    MachineName = Environment.MachineName,
+                    ProcessId = Environment.ProcessId.ToString(),
+                    ThreadId = Environment.CurrentManagedThreadId.ToString(),
+                    Properties = filteredProperties,
+                    Context = context ?? new Dictionary<string, object>(),
+                    Exception = exception,
+                    StackTrace = exception?.StackTrace,
+                    Timestamp = DateTime.UtcNow
+                };
+            }
+            catch (Exception ex)
+            {
+                // Error crítico interno del componente al crear log - crear log mínimo
+                _logger.LogError(ex, "Error crítico interno del componente al crear log. Creando log mínimo.");
+                return new Models.StructuredLogEntry
+                {
+                    ServiceName = "Unknown",
+                    Operation = operation ?? "Unknown",
+                    LogLevel = Models.LogLevel.Error,
+                    Message = $"Error interno del componente al crear log: {message ?? "N/A"}",
+                    Category = Models.LogCategory.System,
+                    UserId = "Anonymous",
+                    UserName = "Anonymous",
+                    Environment = "Unknown",
+                    Version = "Unknown",
+                    MachineName = Environment.MachineName,
+                    ProcessId = Environment.ProcessId.ToString(),
+                    ThreadId = Environment.CurrentManagedThreadId.ToString(),
+                    Properties = new Dictionary<string, object> { { "ComponentError", ex.Message } },
+                    Context = new Dictionary<string, object>(),
+                    Exception = exception ?? ex,
+                    StackTrace = exception?.StackTrace ?? ex.StackTrace,
+                    Timestamp = DateTime.UtcNow
+                };
+            }
         }
 
         /// <summary>
@@ -393,157 +463,235 @@ namespace JonjubNet.Logging.Services
         /// <summary>
         /// Enriquece la entrada de log con información del contexto HTTP y correlación
         /// Aplica mejores prácticas: siempre llena campos con valores por defecto cuando no hay contexto HTTP
+        /// Maneja errores internos del componente sin afectar la aplicación
         /// </summary>
         private async Task EnrichLogEntryAsync(Models.StructuredLogEntry logEntry)
         {
-            // Enriquecer con información del HTTP Context
-            var httpContext = _httpContextAccessor?.HttpContext;
-            if (httpContext != null)
+            try
             {
-                // Información HTTP disponible
-                logEntry.RequestPath = httpContext.Request.Path.ToString();
-                logEntry.RequestMethod = httpContext.Request.Method;
-                logEntry.StatusCode = httpContext.Response.StatusCode;
-                logEntry.ClientIp = GetClientIpAddress(httpContext);
-                logEntry.UserAgent = httpContext.Request.Headers["User-Agent"].ToString();
-
-                // Capturar Query String si está habilitado
-                if (_configuration.Enrichment.HttpCapture.IncludeQueryString)
+                // Enriquecer con información del HTTP Context
+                var httpContext = _httpContextAccessor?.HttpContext;
+                if (httpContext != null)
                 {
-                    logEntry.QueryString = httpContext.Request.QueryString.ToString();
-                }
-
-                // Capturar Headers HTTP de la petición si está habilitado
-                if (_configuration.Enrichment.HttpCapture.IncludeRequestHeaders)
-                {
-                    logEntry.RequestHeaders = CaptureRequestHeaders(httpContext);
-                }
-
-                // Capturar Headers HTTP de la respuesta si está habilitado
-                if (_configuration.Enrichment.HttpCapture.IncludeResponseHeaders)
-                {
-                    logEntry.ResponseHeaders = CaptureResponseHeaders(httpContext);
-                }
-
-                // Capturar Body de la petición si está habilitado
-                // Nota: El body solo se puede capturar si está disponible en HttpContext.Items
-                // (requiere middleware que lo capture antes)
-                if (_configuration.Enrichment.HttpCapture.IncludeRequestBody)
-                {
-                    logEntry.RequestBody = httpContext.Items["JonjubNet.Logging.RequestBody"]?.ToString();
-                }
-
-                // Capturar Body de la respuesta si está habilitado
-                // Nota: El body solo se puede capturar si está disponible en HttpContext.Items
-                // (requiere middleware que lo capture antes)
-                if (_configuration.Enrichment.HttpCapture.IncludeResponseBody)
-                {
-                    logEntry.ResponseBody = httpContext.Items["JonjubNet.Logging.ResponseBody"]?.ToString();
-                }
-
-                // Agregar IDs de correlación si están configurados
-                // Usar HttpContext.Items para almacenar y reutilizar los IDs en todo el request
-                if (_configuration.Correlation.EnableCorrelationId)
-                {
-                    const string correlationIdKey = "JonjubNet.Logging.CorrelationId";
-                    if (!httpContext.Items.ContainsKey(correlationIdKey))
+                    try
                     {
-                        // Intentar obtener del header, si no existe generar uno nuevo
-                        var headerValue = httpContext.Request.Headers[_configuration.Correlation.CorrelationIdHeader].FirstOrDefault();
-                        var correlationId = !string.IsNullOrEmpty(headerValue) 
-                            ? headerValue 
-                            : Guid.NewGuid().ToString();
-                        
-                        // Almacenar en HttpContext.Items para reutilizar
-                        httpContext.Items[correlationIdKey] = correlationId;
-                        
-                        // También establecer en el header de respuesta para que el cliente lo reciba
-                        if (string.IsNullOrEmpty(headerValue))
+                        // Información HTTP disponible
+                        logEntry.RequestPath = httpContext.Request.Path.ToString();
+                        logEntry.RequestMethod = httpContext.Request.Method;
+                        logEntry.StatusCode = httpContext.Response.StatusCode;
+                        logEntry.ClientIp = GetClientIpAddress(httpContext);
+                        logEntry.UserAgent = httpContext.Request.Headers["User-Agent"].ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        // Error interno del componente al acceder HttpContext - usar valores por defecto
+                        _logger.LogWarning(ex, "Error interno del componente al acceder HttpContext. Usando valores por defecto.");
+                        logEntry.RequestPath = "N/A";
+                        logEntry.RequestMethod = "N/A";
+                        logEntry.StatusCode = 0;
+                        logEntry.ClientIp = "N/A";
+                        logEntry.UserAgent = "N/A";
+                    }
+
+                    // Capturar Query String si está habilitado
+                    if (_configuration.Enrichment.HttpCapture.IncludeQueryString)
+                    {
+                        try
                         {
-                            httpContext.Response.Headers[_configuration.Correlation.CorrelationIdHeader] = correlationId;
+                            logEntry.QueryString = httpContext.Request.QueryString.ToString();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error interno del componente al capturar QueryString.");
+                            logEntry.QueryString = null;
                         }
                     }
-                    logEntry.CorrelationId = httpContext.Items[correlationIdKey]?.ToString();
-                }
 
-                if (_configuration.Correlation.EnableRequestId)
-                {
-                    const string requestIdKey = "JonjubNet.Logging.RequestId";
-                    if (!httpContext.Items.ContainsKey(requestIdKey))
+                    // Capturar Headers HTTP de la petición si está habilitado
+                    if (_configuration.Enrichment.HttpCapture.IncludeRequestHeaders)
                     {
-                        var headerValue = httpContext.Request.Headers[_configuration.Correlation.RequestIdHeader].FirstOrDefault();
-                        var requestId = !string.IsNullOrEmpty(headerValue) 
-                            ? headerValue 
-                            : Guid.NewGuid().ToString();
-                        
-                        httpContext.Items[requestIdKey] = requestId;
-                        
-                        if (string.IsNullOrEmpty(headerValue))
+                        try
                         {
-                            httpContext.Response.Headers[_configuration.Correlation.RequestIdHeader] = requestId;
+                            logEntry.RequestHeaders = CaptureRequestHeaders(httpContext);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error interno del componente al capturar RequestHeaders.");
+                            logEntry.RequestHeaders = null;
                         }
                     }
-                    logEntry.RequestId = httpContext.Items[requestIdKey]?.ToString();
-                }
 
-                if (_configuration.Correlation.EnableSessionId)
-                {
-                    const string sessionIdKey = "JonjubNet.Logging.SessionId";
-                    if (!httpContext.Items.ContainsKey(sessionIdKey))
+                    // Capturar Headers HTTP de la respuesta si está habilitado
+                    if (_configuration.Enrichment.HttpCapture.IncludeResponseHeaders)
                     {
-                        var headerValue = httpContext.Request.Headers[_configuration.Correlation.SessionIdHeader].FirstOrDefault();
-                        var sessionId = !string.IsNullOrEmpty(headerValue) 
-                            ? headerValue 
-                            : Guid.NewGuid().ToString();
-                        
-                        httpContext.Items[sessionIdKey] = sessionId;
-                        
-                        if (string.IsNullOrEmpty(headerValue))
+                        try
                         {
-                            httpContext.Response.Headers[_configuration.Correlation.SessionIdHeader] = sessionId;
+                            logEntry.ResponseHeaders = CaptureResponseHeaders(httpContext);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error interno del componente al capturar ResponseHeaders.");
+                            logEntry.ResponseHeaders = null;
                         }
                     }
-                    logEntry.SessionId = httpContext.Items[sessionIdKey]?.ToString();
+
+                    // Capturar Body de la petición si está habilitado
+                    // Nota: El body solo se puede capturar si está disponible en HttpContext.Items
+                    // (requiere middleware que lo capture antes)
+                    if (_configuration.Enrichment.HttpCapture.IncludeRequestBody)
+                    {
+                        logEntry.RequestBody = httpContext.Items["JonjubNet.Logging.RequestBody"]?.ToString();
+                    }
+
+                    // Capturar Body de la respuesta si está habilitado
+                    // Nota: El body solo se puede capturar si está disponible en HttpContext.Items
+                    // (requiere middleware que lo capture antes)
+                    if (_configuration.Enrichment.HttpCapture.IncludeResponseBody)
+                    {
+                        logEntry.ResponseBody = httpContext.Items["JonjubNet.Logging.ResponseBody"]?.ToString();
+                    }
+
+                    // Agregar IDs de correlación si están configurados
+                    // Usar HttpContext.Items para almacenar y reutilizar los IDs en todo el request
+                    try
+                    {
+                        if (_configuration.Correlation.EnableCorrelationId)
+                        {
+                            const string correlationIdKey = "JonjubNet.Logging.CorrelationId";
+                            if (!httpContext.Items.ContainsKey(correlationIdKey))
+                            {
+                                // Intentar obtener del header, si no existe generar uno nuevo
+                                var headerValue = httpContext.Request.Headers[_configuration.Correlation.CorrelationIdHeader].FirstOrDefault();
+                                var correlationId = !string.IsNullOrEmpty(headerValue) 
+                                    ? headerValue 
+                                    : Guid.NewGuid().ToString();
+                                
+                                // Almacenar en HttpContext.Items para reutilizar
+                                httpContext.Items[correlationIdKey] = correlationId;
+                                
+                                // También establecer en el header de respuesta para que el cliente lo reciba
+                                if (string.IsNullOrEmpty(headerValue))
+                                {
+                                    httpContext.Response.Headers[_configuration.Correlation.CorrelationIdHeader] = correlationId;
+                                }
+                            }
+                            logEntry.CorrelationId = httpContext.Items[correlationIdKey]?.ToString();
+                        }
+
+                        if (_configuration.Correlation.EnableRequestId)
+                        {
+                            const string requestIdKey = "JonjubNet.Logging.RequestId";
+                            if (!httpContext.Items.ContainsKey(requestIdKey))
+                            {
+                                var headerValue = httpContext.Request.Headers[_configuration.Correlation.RequestIdHeader].FirstOrDefault();
+                                var requestId = !string.IsNullOrEmpty(headerValue) 
+                                    ? headerValue 
+                                    : Guid.NewGuid().ToString();
+                                
+                                httpContext.Items[requestIdKey] = requestId;
+                                
+                                if (string.IsNullOrEmpty(headerValue))
+                                {
+                                    httpContext.Response.Headers[_configuration.Correlation.RequestIdHeader] = requestId;
+                                }
+                            }
+                            logEntry.RequestId = httpContext.Items[requestIdKey]?.ToString();
+                        }
+
+                        if (_configuration.Correlation.EnableSessionId)
+                        {
+                            const string sessionIdKey = "JonjubNet.Logging.SessionId";
+                            if (!httpContext.Items.ContainsKey(sessionIdKey))
+                            {
+                                var headerValue = httpContext.Request.Headers[_configuration.Correlation.SessionIdHeader].FirstOrDefault();
+                                var sessionId = !string.IsNullOrEmpty(headerValue) 
+                                    ? headerValue 
+                                    : Guid.NewGuid().ToString();
+                                
+                                httpContext.Items[sessionIdKey] = sessionId;
+                                
+                                if (string.IsNullOrEmpty(headerValue))
+                                {
+                                    httpContext.Response.Headers[_configuration.Correlation.SessionIdHeader] = sessionId;
+                                }
+                            }
+                            logEntry.SessionId = httpContext.Items[sessionIdKey]?.ToString();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Error interno del componente al manejar correlación - generar IDs sin HttpContext
+                        _logger.LogWarning(ex, "Error interno del componente al manejar IDs de correlación. Generando IDs sin HttpContext.");
+                        if (_configuration.Correlation.EnableCorrelationId && string.IsNullOrEmpty(logEntry.CorrelationId))
+                        {
+                            logEntry.CorrelationId = Guid.NewGuid().ToString();
+                        }
+                        if (_configuration.Correlation.EnableRequestId && string.IsNullOrEmpty(logEntry.RequestId))
+                        {
+                            logEntry.RequestId = Guid.NewGuid().ToString();
+                        }
+                        if (_configuration.Correlation.EnableSessionId && string.IsNullOrEmpty(logEntry.SessionId))
+                        {
+                            logEntry.SessionId = Guid.NewGuid().ToString();
+                        }
+                    }
                 }
-            }
-            else
-            {
-                // No hay contexto HTTP - aplicar mejores prácticas: llenar con valores por defecto
-                // Esto asegura estructura consistente incluso para logs fuera de contexto HTTP
-                logEntry.RequestPath = "N/A";
-                logEntry.RequestMethod = "N/A";
-                logEntry.StatusCode = 0; // 0 indica que no hay contexto HTTP
-                logEntry.ClientIp = "N/A";
-                logEntry.UserAgent = "N/A";
-                
-                // Campos HTTP adicionales cuando no hay HttpContext
-                if (_configuration.Enrichment.HttpCapture.IncludeQueryString)
+                else
                 {
-                    logEntry.QueryString = null;
-                }
-                
-                if (_configuration.Enrichment.HttpCapture.IncludeRequestHeaders)
-                {
-                    logEntry.RequestHeaders = null;
-                }
-                
-                if (_configuration.Enrichment.HttpCapture.IncludeResponseHeaders)
-                {
-                    logEntry.ResponseHeaders = null;
-                }
-                
-                if (_configuration.Enrichment.HttpCapture.IncludeRequestBody)
-                {
-                    logEntry.RequestBody = null;
-                }
-                
-                if (_configuration.Enrichment.HttpCapture.IncludeResponseBody)
-                {
-                    logEntry.ResponseBody = null;
+                    // No hay contexto HTTP - aplicar mejores prácticas: llenar con valores por defecto
+                    // Esto asegura estructura consistente incluso para logs fuera de contexto HTTP
+                    logEntry.RequestPath = "N/A";
+                    logEntry.RequestMethod = "N/A";
+                    logEntry.StatusCode = 0; // 0 indica que no hay contexto HTTP
+                    logEntry.ClientIp = "N/A";
+                    logEntry.UserAgent = "N/A";
+                    
+                    // Campos HTTP adicionales cuando no hay HttpContext
+                    if (_configuration.Enrichment.HttpCapture.IncludeQueryString)
+                    {
+                        logEntry.QueryString = null;
+                    }
+                    
+                    if (_configuration.Enrichment.HttpCapture.IncludeRequestHeaders)
+                    {
+                        logEntry.RequestHeaders = null;
+                    }
+                    
+                    if (_configuration.Enrichment.HttpCapture.IncludeResponseHeaders)
+                    {
+                        logEntry.ResponseHeaders = null;
+                    }
+                    
+                    if (_configuration.Enrichment.HttpCapture.IncludeRequestBody)
+                    {
+                        logEntry.RequestBody = null;
+                    }
+                    
+                    if (_configuration.Enrichment.HttpCapture.IncludeResponseBody)
+                    {
+                        logEntry.ResponseBody = null;
+                    }
+
+                    // Generar IDs de correlación incluso sin HttpContext si están habilitados
+                    // Esto permite rastrear logs fuera de contexto HTTP
+                    if (_configuration.Correlation.EnableCorrelationId && string.IsNullOrEmpty(logEntry.CorrelationId))
+                    {
+                        logEntry.CorrelationId = Guid.NewGuid().ToString();
+                    }
+
+                    if (_configuration.Correlation.EnableRequestId && string.IsNullOrEmpty(logEntry.RequestId))
+                    {
+                        logEntry.RequestId = Guid.NewGuid().ToString();
+                    }
+
+                    if (_configuration.Correlation.EnableSessionId && string.IsNullOrEmpty(logEntry.SessionId))
+                    {
+                        logEntry.SessionId = Guid.NewGuid().ToString();
+                    }
                 }
 
-                // Generar IDs de correlación incluso sin HttpContext si están habilitados
-                // Esto permite rastrear logs fuera de contexto HTTP
+                // Asegurar que los IDs de correlación se generen si están habilitados pero aún son null
+                // (por si acaso no se generaron en los bloques anteriores)
                 if (_configuration.Correlation.EnableCorrelationId && string.IsNullOrEmpty(logEntry.CorrelationId))
                 {
                     logEntry.CorrelationId = Guid.NewGuid().ToString();
@@ -558,34 +706,31 @@ namespace JonjubNet.Logging.Services
                 {
                     logEntry.SessionId = Guid.NewGuid().ToString();
                 }
-            }
 
-            // Asegurar que los IDs de correlación se generen si están habilitados pero aún son null
-            // (por si acaso no se generaron en los bloques anteriores)
-            if (_configuration.Correlation.EnableCorrelationId && string.IsNullOrEmpty(logEntry.CorrelationId))
-            {
-                logEntry.CorrelationId = Guid.NewGuid().ToString();
-            }
-
-            if (_configuration.Correlation.EnableRequestId && string.IsNullOrEmpty(logEntry.RequestId))
-            {
-                logEntry.RequestId = Guid.NewGuid().ToString();
-            }
-
-            if (_configuration.Correlation.EnableSessionId && string.IsNullOrEmpty(logEntry.SessionId))
-            {
-                logEntry.SessionId = Guid.NewGuid().ToString();
-            }
-
-            // Agregar propiedades estáticas configuradas (filtradas para evitar duplicación)
-            var reservedFields = GetReservedFields();
-            foreach (var property in _configuration.Enrichment.StaticProperties)
-            {
-                // Solo agregar si no es un campo reservado (ya está en nivel raíz)
-                if (!reservedFields.Contains(property.Key))
+                // Agregar propiedades estáticas configuradas (filtradas para evitar duplicación)
+                try
                 {
-                    logEntry.Properties[property.Key] = property.Value;
+                    var reservedFields = GetReservedFields();
+                    foreach (var property in _configuration.Enrichment.StaticProperties)
+                    {
+                        // Solo agregar si no es un campo reservado (ya está en nivel raíz)
+                        if (!reservedFields.Contains(property.Key))
+                        {
+                            logEntry.Properties[property.Key] = property.Value;
+                        }
+                    }
                 }
+                catch (Exception ex)
+                {
+                    // Error interno del componente al agregar propiedades estáticas - continuar sin ellas
+                    _logger.LogWarning(ex, "Error interno del componente al agregar propiedades estáticas.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Error crítico interno del componente en EnrichLogEntryAsync - registrar y continuar
+                // No lanzar excepción para no afectar la aplicación
+                _logger.LogError(ex, "Error crítico interno del componente en EnrichLogEntryAsync. El log se procesará sin enriquecimiento completo.");
             }
         }
 
@@ -673,6 +818,10 @@ namespace JonjubNet.Logging.Services
                     case KafkaConnectionType.WebhookHttps:
                         await SendToWebhookAsync(jsonMessage);
                         _logger.LogDebug("Mensaje enviado exitosamente a Webhook ({Type})", _connectionType);
+                        break;
+                    case KafkaConnectionType.None:
+                    default:
+                        _logger.LogWarning("Tipo de conexión Kafka no válido o no configurado: {ConnectionType}", _connectionType);
                         break;
                 }
             }
@@ -836,6 +985,128 @@ namespace JonjubNet.Logging.Services
             _kafkaProducer?.Dispose();
         }
 
+        /// <summary>
+        /// Maneja errores internos del componente
+        /// Registra el error localmente e intenta enviarlo a Kafka si es posible
+        /// NUNCA lanza excepciones para no afectar la aplicación
+        /// </summary>
+        private async Task HandleComponentErrorAsync(Exception error, Models.StructuredLogEntry? originalLogEntry, string errorContext)
+        {
+            try
+            {
+                // Registrar error del componente localmente
+                var originalLogJson = originalLogEntry?.ToJson() ?? "N/A";
+                _logger.LogError(error, "Error interno del componente: {ErrorContext}. Tipo: {ConnectionType}, Topic: {Topic}, Log: {StructuredLog}", 
+                    errorContext, _connectionType, _configuration.KafkaProducer.Topic, originalLogJson);
+                
+                // Intentar enviar el error a Kafka (solo errores del componente, no de la aplicación)
+                // Solo si el error NO es de tipo de conexión None (para evitar loops)
+                if (_connectionType != KafkaConnectionType.None && _configuration.KafkaProducer.Enabled)
+                {
+                    try
+                    {
+                        await TrySendComponentErrorToKafkaAsync(error, originalLogEntry, originalLogJson, errorContext);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Si falla el envío del error, solo registrar localmente (evitar loop infinito)
+                        _logger.LogWarning(ex, "No se pudo enviar el error del componente a Kafka. Error registrado solo localmente.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Error crítico al manejar errores - solo registrar localmente
+                _logger.LogError(ex, "Error crítico interno del componente al manejar errores. Error original: {OriginalError}", 
+                    error.Message);
+            }
+        }
+
+        /// <summary>
+        /// Intenta enviar un error del componente a Kafka (para registro de errores del componente)
+        /// Solo se usa para errores internos del componente, NO para errores de la aplicación
+        /// </summary>
+        private async Task TrySendComponentErrorToKafkaAsync(Exception error, Models.StructuredLogEntry? originalLogEntry, string originalLogJson, string errorContext)
+        {
+            try
+            {
+                // Crear un log de error específico para el error del componente
+                var errorLogEntry = new Models.StructuredLogEntry
+                {
+                    ServiceName = _configuration.ServiceName,
+                    Operation = "ComponentError",
+                    LogLevel = Models.LogLevel.Error,
+                    Message = $"Error interno del componente: {errorContext} - {error.Message}",
+                    Category = Models.LogCategory.System,
+                    EventType = Models.EventType.Custom,
+                    UserId = originalLogEntry?.UserId ?? "Anonymous",
+                    UserName = originalLogEntry?.UserName ?? "Anonymous",
+                    Environment = _configuration.Environment,
+                    Version = _configuration.Version,
+                    MachineName = Environment.MachineName,
+                    ProcessId = Environment.ProcessId.ToString(),
+                    ThreadId = Environment.CurrentManagedThreadId.ToString(),
+                    Properties = new Dictionary<string, object>
+                    {
+                        { "ErrorType", error.GetType().Name },
+                        { "ErrorMessage", error.Message },
+                        { "ConnectionType", _connectionType.ToString() },
+                        { "Topic", _configuration.KafkaProducer.Topic },
+                        { "OriginalLog", originalLogJson }
+                    },
+                    Context = new Dictionary<string, object>
+                    {
+                        { "ErrorTimestamp", DateTime.UtcNow },
+                        { "StackTrace", error.StackTrace ?? "N/A" }
+                    },
+                    Exception = error,
+                    StackTrace = error.StackTrace,
+                    Timestamp = DateTime.UtcNow,
+                    CorrelationId = originalLogEntry?.CorrelationId,
+                    RequestId = originalLogEntry?.RequestId,
+                    SessionId = originalLogEntry?.SessionId
+                };
+
+                // Enriquecer el log de error
+                await EnrichLogEntryAsync(errorLogEntry);
+
+                // Intentar enviar el error a Kafka (usando el mismo método pero con el log de error)
+                var errorJson = errorLogEntry.ToJson();
+                
+                // Enviar según el tipo de conexión (evitar recursión usando los métodos internos directamente)
+                switch (_connectionType)
+                {
+                    case KafkaConnectionType.Native:
+                        if (_kafkaProducer != null)
+                        {
+                            await _kafkaProducer.ProduceAsync(_configuration.KafkaProducer.Topic, 
+                                new Message<Null, string> { Value = errorJson });
+                        }
+                        break;
+                    case KafkaConnectionType.Http:
+                    case KafkaConnectionType.Https:
+                        await SendToKafkaHttpAsync(errorJson);
+                        break;
+                    case KafkaConnectionType.WebhookHttp:
+                    case KafkaConnectionType.WebhookHttps:
+                        await SendToWebhookAsync(errorJson);
+                        break;
+                    case KafkaConnectionType.None:
+                    default:
+                        _logger.LogWarning("Tipo de conexión Kafka no válido o no configurado: {ConnectionType}", _connectionType);
+                        break;
+                }
+                
+                _logger.LogDebug("Error de envío a Kafka registrado exitosamente en Kafka");
+            }
+            catch (Exception ex)
+            {
+                // Si falla el envío del error, solo registrar localmente (evitar loop infinito)
+                _logger.LogWarning(ex, "No se pudo enviar el error de Kafka a Kafka. Error registrado solo localmente.");
+                throw; // Re-lanzar para que el catch externo lo maneje
+            }
+        }
+
         private static string GetClientIpAddress(HttpContext context)
         {
             var xForwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
@@ -855,45 +1126,65 @@ namespace JonjubNet.Logging.Services
 
         /// <summary>
         /// Captura los headers HTTP de la petición, excluyendo headers sensibles
+        /// Maneja errores internos del componente sin afectar la aplicación
         /// </summary>
         private Dictionary<string, string> CaptureRequestHeaders(HttpContext context)
         {
-            var headers = new Dictionary<string, string>();
-            var sensitiveHeaders = _configuration.Enrichment.HttpCapture.SensitiveHeaders
-                .Select(h => h.ToLowerInvariant())
-                .ToHashSet();
-
-            foreach (var header in context.Request.Headers)
+            try
             {
-                var headerName = header.Key;
-                // Excluir headers sensibles
-                if (!sensitiveHeaders.Contains(headerName.ToLowerInvariant()))
-                {
-                    headers[headerName] = string.Join(", ", header.Value.ToArray());
-                }
-                else
-                {
-                    // Mostrar que el header existe pero no su valor (por seguridad)
-                    headers[headerName] = "[REDACTED]";
-                }
-            }
+                var headers = new Dictionary<string, string>();
+                var sensitiveHeaders = _configuration.Enrichment.HttpCapture.SensitiveHeaders
+                    .Select(h => h.ToLowerInvariant())
+                    .ToHashSet();
 
-            return headers;
+                foreach (var header in context.Request.Headers)
+                {
+                    var headerName = header.Key;
+                    // Excluir headers sensibles
+                    if (!sensitiveHeaders.Contains(headerName.ToLowerInvariant()))
+                    {
+                        headers[headerName] = string.Join(", ", header.Value.ToArray());
+                    }
+                    else
+                    {
+                        // Mostrar que el header existe pero no su valor (por seguridad)
+                        headers[headerName] = "[REDACTED]";
+                    }
+                }
+
+                return headers;
+            }
+            catch (Exception ex)
+            {
+                // Error interno del componente al capturar headers - retornar diccionario vacío
+                _logger.LogWarning(ex, "Error interno del componente al capturar RequestHeaders.");
+                return new Dictionary<string, string>();
+            }
         }
 
         /// <summary>
         /// Captura los headers HTTP de la respuesta
+        /// Maneja errores internos del componente sin afectar la aplicación
         /// </summary>
         private Dictionary<string, string> CaptureResponseHeaders(HttpContext context)
         {
-            var headers = new Dictionary<string, string>();
-
-            foreach (var header in context.Response.Headers)
+            try
             {
-                headers[header.Key] = string.Join(", ", header.Value.ToArray());
-            }
+                var headers = new Dictionary<string, string>();
 
-            return headers;
+                foreach (var header in context.Response.Headers)
+                {
+                    headers[header.Key] = string.Join(", ", header.Value.ToArray());
+                }
+
+                return headers;
+            }
+            catch (Exception ex)
+            {
+                // Error interno del componente al capturar headers - retornar diccionario vacío
+                _logger.LogWarning(ex, "Error interno del componente al capturar ResponseHeaders.");
+                return new Dictionary<string, string>();
+            }
         }
 
     }

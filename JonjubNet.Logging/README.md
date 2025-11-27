@@ -610,6 +610,435 @@ app.Use(async (context, next) =>
 }
 ```
 
+## Mejores Prácticas: Registro de Errores en APIs
+
+### ¿Dónde Registrar Errores?
+
+Las mejores prácticas recomiendan registrar errores en **múltiples capas** de la aplicación:
+
+#### 1. **Middleware Global de Manejo de Excepciones** (Recomendado - Nivel más alto)
+
+Un middleware global captura **todos los errores no manejados** de la aplicación. Es el lugar ideal para registrar errores críticos y de infraestructura.
+
+```csharp
+// Program.cs o Startup.cs
+using JonjubNet.Logging.Interfaces;
+
+var app = builder.Build();
+
+// Middleware de manejo global de excepciones
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exceptionHandler = context.Features.Get<IExceptionHandlerFeature>();
+        var exception = exceptionHandler?.Error;
+        var loggingService = context.RequestServices.GetRequiredService<IStructuredLoggingService>();
+
+        if (exception != null)
+        {
+            // Registrar error con información completa del contexto HTTP
+            loggingService.LogError(
+                message: $"Error no manejado en la aplicación: {exception.Message}",
+                operation: context.Request.Path,
+                category: "System",
+                properties: new Dictionary<string, object>
+                {
+                    { "HttpMethod", context.Request.Method },
+                    { "StatusCode", context.Response.StatusCode },
+                    { "Path", context.Request.Path.ToString() },
+                    { "QueryString", context.Request.QueryString.ToString() }
+                },
+                exception: exception
+            );
+
+            // Responder con error estructurado
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/json";
+            
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new
+            {
+                error = new
+                {
+                    message = "Ha ocurrido un error interno del servidor",
+                    correlationId = context.Items["JonjubNet.Logging.CorrelationId"]?.ToString()
+                }
+            }));
+        }
+    });
+});
+
+app.Run();
+```
+
+#### 2. **Controllers / Endpoints** (Errores de negocio y validación)
+
+En los controllers, registra errores específicos de la lógica de negocio y validaciones.
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class OrdersController : ControllerBase
+{
+    private readonly IStructuredLoggingService _loggingService;
+    private readonly IOrderService _orderService;
+
+    [HttpPost]
+    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        
+        try
+        {
+            _loggingService.LogOperationStart("CreateOrder", "Business");
+            
+            // Validación de negocio
+            if (request.Amount <= 0)
+            {
+                _loggingService.LogWarning(
+                    message: "Intento de crear orden con monto inválido",
+                    operation: "CreateOrder",
+                    category: "Business",
+                    properties: new Dictionary<string, object>
+                    {
+                        { "RequestedAmount", request.Amount },
+                        { "UserId", request.UserId }
+                    }
+                );
+                
+                return BadRequest(new { error = "El monto debe ser mayor a cero" });
+            }
+
+            var order = await _orderService.CreateOrderAsync(request);
+            stopwatch.Stop();
+
+            _loggingService.LogOperationEnd(
+                operation: "CreateOrder",
+                category: "Business",
+                executionTimeMs: stopwatch.ElapsedMilliseconds,
+                properties: new Dictionary<string, object>
+                {
+                    { "OrderId", order.Id },
+                    { "Amount", order.Amount }
+                },
+                success: true
+            );
+
+            return Ok(order);
+        }
+        catch (BusinessException ex)
+        {
+            stopwatch.Stop();
+            
+            // Error de negocio - registrar como Warning o Error según la gravedad
+            _loggingService.LogError(
+                message: $"Error de negocio al crear orden: {ex.Message}",
+                operation: "CreateOrder",
+                category: "Business",
+                properties: new Dictionary<string, object>
+                {
+                    { "RequestedAmount", request.Amount },
+                    { "UserId", request.UserId },
+                    { "BusinessRule", ex.BusinessRule }
+                },
+                exception: ex
+            );
+
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            
+            // Error inesperado - registrar como Error crítico
+            _loggingService.LogError(
+                message: $"Error inesperado al crear orden: {ex.Message}",
+                operation: "CreateOrder",
+                category: "System",
+                properties: new Dictionary<string, object>
+                {
+                    { "RequestedAmount", request.Amount },
+                    { "UserId", request.UserId }
+                },
+                exception: ex
+            );
+
+            // Re-lanzar para que el middleware global lo maneje
+            throw;
+        }
+    }
+}
+```
+
+#### 3. **Servicios / Lógica de Negocio** (Errores específicos del dominio)
+
+En los servicios, registra errores relacionados con la lógica de negocio y operaciones de datos.
+
+```csharp
+public class OrderService : IOrderService
+{
+    private readonly IStructuredLoggingService _loggingService;
+    private readonly IOrderRepository _repository;
+
+    public async Task<Order> CreateOrderAsync(CreateOrderRequest request)
+    {
+        try
+        {
+            _loggingService.LogInformation(
+                message: "Iniciando creación de orden",
+                operation: "CreateOrder",
+                category: "Business",
+                properties: new Dictionary<string, object>
+                {
+                    { "UserId", request.UserId },
+                    { "Amount", request.Amount }
+                }
+            );
+
+            // Validar stock
+            var hasStock = await _repository.CheckStockAsync(request.ProductId);
+            if (!hasStock)
+            {
+                _loggingService.LogWarning(
+                    message: "Intento de crear orden sin stock disponible",
+                    operation: "CreateOrder",
+                    category: "Business",
+                    properties: new Dictionary<string, object>
+                    {
+                        { "ProductId", request.ProductId },
+                        { "RequestedQuantity", request.Quantity }
+                    }
+                );
+                
+                throw new BusinessException("No hay stock disponible", "INSUFFICIENT_STOCK");
+            }
+
+            var order = await _repository.CreateAsync(request);
+            
+            _loggingService.LogInformation(
+                message: "Orden creada exitosamente",
+                operation: "CreateOrder",
+                category: "Business",
+                properties: new Dictionary<string, object>
+                {
+                    { "OrderId", order.Id }
+                }
+            );
+
+            return order;
+        }
+        catch (BusinessException)
+        {
+            // Re-lanzar excepciones de negocio sin modificar
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Error inesperado en la capa de servicio
+            _loggingService.LogError(
+                message: $"Error al crear orden en el servicio: {ex.Message}",
+                operation: "CreateOrder",
+                category: "Database",
+                properties: new Dictionary<string, object>
+                {
+                    { "ProductId", request.ProductId },
+                    { "UserId", request.UserId }
+                },
+                exception: ex
+            );
+            
+            throw;
+        }
+    }
+}
+```
+
+### ¿Qué Información Registrar?
+
+#### ✅ **Información Obligatoria en Errores:**
+
+1. **Mensaje descriptivo**: Descripción clara del error
+2. **Operación**: Nombre de la operación que falló
+3. **Categoría**: Tipo de error (System, Business, Database, etc.)
+4. **Excepción completa**: Objeto `Exception` con stack trace
+5. **Contexto HTTP**: Path, método, query string (capturado automáticamente)
+6. **IDs de correlación**: CorrelationId, RequestId, SessionId (generados automáticamente)
+7. **Propiedades relevantes**: Datos del request que causaron el error
+
+#### ✅ **Información Recomendada:**
+
+```csharp
+_loggingService.LogError(
+    message: "Error al procesar pago",
+    operation: "ProcessPayment",
+    category: "Business",
+    properties: new Dictionary<string, object>
+    {
+        // Datos del request
+        { "PaymentId", paymentId },
+        { "Amount", amount },
+        { "PaymentMethod", paymentMethod },
+        
+        // Contexto adicional
+        { "UserId", userId },
+        { "OrderId", orderId },
+        
+        // Información de diagnóstico
+        { "RetryCount", retryCount },
+        { "GatewayResponse", gatewayResponse }
+    },
+    context: new Dictionary<string, object>
+    {
+        { "PaymentAttempt", attemptNumber },
+        { "PaymentTimestamp", DateTime.UtcNow }
+    },
+    exception: ex
+);
+```
+
+### Niveles de Log según Tipo de Error
+
+| Tipo de Error | Nivel de Log | Ejemplo |
+|---------------|--------------|---------|
+| **Error de validación** | `Warning` | Datos inválidos del usuario |
+| **Error de negocio** | `Warning` o `Error` | Regla de negocio violada |
+| **Error de infraestructura** | `Error` | Base de datos no disponible |
+| **Error crítico** | `Critical` | Error que requiere atención inmediata |
+| **Error de seguridad** | `Error` + `Security` | Intento de acceso no autorizado |
+
+### Ejemplo Completo: Middleware de Manejo de Errores
+
+```csharp
+public class GlobalExceptionMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly IStructuredLoggingService _loggingService;
+    private readonly IWebHostEnvironment _environment;
+
+    public GlobalExceptionMiddleware(
+        RequestDelegate next,
+        IStructuredLoggingService loggingService,
+        IWebHostEnvironment environment)
+    {
+        _next = next;
+        _loggingService = loggingService;
+        _environment = environment;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            await HandleExceptionAsync(context, ex);
+        }
+    }
+
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    {
+        var statusCode = exception switch
+        {
+            ArgumentException => StatusCodes.Status400BadRequest,
+            UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
+            NotFoundException => StatusCodes.Status404NotFound,
+            BusinessException => StatusCodes.Status422UnprocessableEntity,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        // Determinar categoría según el tipo de excepción
+        var category = exception switch
+        {
+            BusinessException => "Business",
+            UnauthorizedAccessException => "Security",
+            TimeoutException => "Performance",
+            _ => "System"
+        };
+
+        // Registrar error con información completa
+        _loggingService.LogError(
+            message: $"Error procesando petición: {exception.Message}",
+            operation: context.Request.Path,
+            category: category,
+            properties: new Dictionary<string, object>
+            {
+                { "HttpMethod", context.Request.Method },
+                { "StatusCode", statusCode },
+                { "Path", context.Request.Path.ToString() },
+                { "QueryString", context.Request.QueryString.ToString() },
+                { "ExceptionType", exception.GetType().Name }
+            },
+            exception: exception
+        );
+
+        // Responder con error estructurado
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
+
+        var response = new
+        {
+            error = new
+            {
+                message = _environment.IsDevelopment() ? exception.Message : "Ha ocurrido un error",
+                correlationId = context.Items["JonjubNet.Logging.CorrelationId"]?.ToString(),
+                timestamp = DateTime.UtcNow
+            }
+        };
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+    }
+}
+
+// Registrar en Program.cs
+app.UseMiddleware<GlobalExceptionMiddleware>();
+```
+
+### Mejores Prácticas Resumidas
+
+1. ✅ **Usa middleware global** para errores no manejados
+2. ✅ **Registra en cada capa** (Controllers, Services, Repositories)
+3. ✅ **Incluye contexto completo**: Request, usuario, operación
+4. ✅ **Usa niveles apropiados**: Warning para validaciones, Error para fallos, Critical para errores críticos
+5. ✅ **No registres información sensible**: Passwords, tokens completos, datos personales
+6. ✅ **Incluye la excepción completa**: El componente captura automáticamente el stack trace
+7. ✅ **Usa CorrelationId**: Permite rastrear errores relacionados en múltiples servicios
+8. ✅ **Registra antes de re-lanzar**: Asegúrate de registrar antes de `throw`
+9. ✅ **No registres en loops**: Evita registrar el mismo error múltiples veces
+10. ✅ **Usa categorías consistentes**: System, Business, Security, Database, etc.
+
+### Ejemplo de Log de Error Generado
+
+```json
+{
+  "serviceName": "OrderService",
+  "operation": "CreateOrder",
+  "logLevel": "Error",
+  "message": "Error al procesar pago: Insufficient funds",
+  "category": "Business",
+  "eventType": "Custom",
+  "userId": "user123",
+  "userName": "john.doe",
+  "environment": "Production",
+  "version": "1.0.0",
+  "properties": {
+    "PaymentId": "PAY-12345",
+    "Amount": 1500.00,
+    "PaymentMethod": "CreditCard",
+    "ExceptionType": "BusinessException"
+  },
+  "exception": "BusinessException: Insufficient funds\n   at OrderService.ProcessPayment()...",
+  "stackTrace": "   at OrderService.ProcessPayment()...",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "requestPath": "/api/orders",
+  "requestMethod": "POST",
+  "statusCode": 422,
+  "correlationId": "d8284def-e59c-4d9c-a814-b05ea8319b03",
+  "requestId": "27473e7d-6afc-4f50-8165-3ec89ccffcc2"
+}
+```
+
 ## Solución de Problemas
 
 ### Los campos HTTP están en "N/A"

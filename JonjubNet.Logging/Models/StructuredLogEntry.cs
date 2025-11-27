@@ -164,74 +164,94 @@ namespace JonjubNet.Logging.Models
 
         /// <summary>
         /// Convierte la entrada de log a JSON
+        /// Maneja errores de serialización sin afectar la aplicación
         /// </summary>
         /// <returns>JSON string válido y bien formateado</returns>
         public string ToJson()
         {
-            var options = new JsonSerializerOptions
+            try
             {
-                WriteIndented = false,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                // Nota: No omitimos nulls para mantener estructura consistente
-                // Esto facilita queries y análisis en sistemas como Elasticsearch
-            };
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    // Nota: No omitimos nulls para mantener estructura consistente
+                    // Esto facilita queries y análisis en sistemas como Elasticsearch
+                };
 
-            // Crear un objeto anónimo con orden lógico
-            // System.Text.Json garantiza JSON válido sin comas finales
-            // Los campos null se incluyen explícitamente para mantener estructura consistente
-            var logObject = new
+                // Crear un objeto anónimo con orden lógico
+                // System.Text.Json garantiza JSON válido sin comas finales
+                // Los campos null se incluyen explícitamente para mantener estructura consistente
+                var logObject = new
+                {
+                    // Identificación y contexto básico
+                    ServiceName,
+                    Operation,
+                    LogLevel,
+                    Message,
+                    Category,
+                    EventType,
+                    
+                    // Información de usuario
+                    UserId,
+                    UserName,
+                    
+                    // Información del sistema
+                    Environment,
+                    Version,
+                    MachineName,
+                    ProcessId,
+                    ThreadId,
+                    
+                    // Datos específicos del evento (siempre incluidos, incluso si están vacíos)
+                    Properties = Properties.Count > 0 ? Properties : new Dictionary<string, object>(),
+                    Context = Context.Count > 0 ? Context : new Dictionary<string, object>(),
+                    
+                    // Información de excepción
+                    Exception = Exception?.ToString(),
+                    StackTrace,
+                    
+                    // Timestamp
+                    Timestamp,
+                    
+                    // Información HTTP
+                    RequestPath,
+                    RequestMethod,
+                    StatusCode,
+                    ClientIp,
+                    UserAgent,
+                    
+                    // IDs de correlación
+                    CorrelationId,
+                    RequestId,
+                    SessionId,
+                    
+                    // Información HTTP adicional
+                    QueryString,
+                    RequestHeaders,
+                    ResponseHeaders,
+                    RequestBody,
+                    ResponseBody
+                };
+
+                return JsonSerializer.Serialize(logObject, options);
+            }
+            catch (Exception ex)
             {
-                // Identificación y contexto básico
-                ServiceName,
-                Operation,
-                LogLevel,
-                Message,
-                Category,
-                EventType,
-                
-                // Información de usuario
-                UserId,
-                UserName,
-                
-                // Información del sistema
-                Environment,
-                Version,
-                MachineName,
-                ProcessId,
-                ThreadId,
-                
-                // Datos específicos del evento (siempre incluidos, incluso si están vacíos)
-                Properties = Properties.Count > 0 ? Properties : new Dictionary<string, object>(),
-                Context = Context.Count > 0 ? Context : new Dictionary<string, object>(),
-                
-                // Información de excepción
-                Exception = Exception?.ToString(),
-                StackTrace,
-                
-                // Timestamp
-                Timestamp,
-                
-                // Información HTTP
-                RequestPath,
-                RequestMethod,
-                StatusCode,
-                ClientIp,
-                UserAgent,
-                
-                // IDs de correlación
-                CorrelationId,
-                RequestId,
-                SessionId,
-                
-                // Información HTTP adicional
-                QueryString,
-                RequestHeaders,
-                ResponseHeaders,
-                RequestBody,
-                ResponseBody
-            };
-
-            return JsonSerializer.Serialize(logObject, options);
+                // Error crítico interno del componente al serializar - retornar JSON mínimo
+                // Esto nunca debe ocurrir, pero por seguridad retornamos un JSON válido
+                return JsonSerializer.Serialize(new
+                {
+                    ServiceName = ServiceName ?? "Unknown",
+                    Operation = Operation ?? "Unknown",
+                    LogLevel = LogLevel ?? "Error",
+                    Message = Message ?? $"Error interno del componente al serializar log: {ex.Message}",
+                    Category = Category ?? "System",
+                    EventType = EventType ?? "Custom",
+                    Timestamp = Timestamp,
+                    ComponentError = ex.Message
+                }, new JsonSerializerOptions { WriteIndented = false, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            }
         }
     }
 

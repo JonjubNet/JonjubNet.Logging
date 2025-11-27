@@ -29,6 +29,10 @@ namespace JonjubNet.Logging
             // Registrar el servicio de usuario por defecto
             services.AddScoped<ICurrentUserService, DefaultCurrentUserService>();
 
+            // Registrar el servicio de categorización de errores genérico como Singleton
+            // Es thread-safe (usa ConcurrentDictionary) y puede ser compartido entre requests
+            services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
+
             // Registrar el servicio de logging estructurado
             services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
 
@@ -82,6 +86,10 @@ namespace JonjubNet.Logging
             
             // Registrar el servicio de usuario personalizado
             services.AddScoped<ICurrentUserService, TUserService>();
+
+            // Registrar el servicio de categorización de errores genérico como Singleton
+            // Es thread-safe (usa ConcurrentDictionary) y puede ser compartido entre requests
+            services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
 
             // Registrar el servicio de logging estructurado
             services.AddScoped<IStructuredLoggingService, StructuredLoggingService>();
