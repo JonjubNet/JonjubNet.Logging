@@ -2,14 +2,21 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: 
+      - main
+      - test
+      - 'feature/*'
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main ]
+    branches: 
+      - main
+      - test
 
 env:
   DOTNET_VERSION: '10.0.x'
   PACKAGE_NAME: 'JonjubNet.Logging'
+  PROJECT_PATH: 'Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj'
+  SOLUTION_PATH: 'JonjubNet.Logging.slnx'
 
 jobs:
   build-and-test:
@@ -26,28 +33,79 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Extract and set version
+      id: version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION="${{ github.ref_name }}"
+          # Remove 'v' prefix if present
+          VERSION=${VERSION#v}
+          echo "Using version from tag: $VERSION"
+        elif [[ "${{ github.ref }}" == refs/heads/test ]]; then
+          # For test branch, add -test suffix
+          BASE_VERSION=$(grep -oP '<Version>\K[^<]+' ${{ env.PROJECT_PATH }} || echo "1.0.0")
+          VERSION="${BASE_VERSION}-test.$(date +%Y%m%d%H%M%S)"
+          echo "Using test version: $VERSION"
+        elif [[ "${{ github.ref }}" == refs/heads/feature/* ]] || [[ "${{ github.ref_name }}" == feature/* ]]; then
+          # For feature branches, add -feature suffix
+          BASE_VERSION=$(grep -oP '<Version>\K[^<]+' ${{ env.PROJECT_PATH }} || echo "1.0.0")
+          BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/feature\///' | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
+          VERSION="${BASE_VERSION}-feature.${BRANCH_NAME}.$(date +%Y%m%d%H%M%S)"
+          echo "Using feature version: $VERSION"
+        else
+          # Use version from csproj file
+          VERSION=$(grep -oP '<Version>\K[^<]+' ${{ env.PROJECT_PATH }} || echo "1.0.0")
+          echo "Using version from csproj: $VERSION"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Final version: $VERSION"
+
+    - name: Update version in csproj (if tag)
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        # Update version in csproj file
+        sed -i "s/<Version>.*<\/Version>/<Version>$VERSION<\/Version>/" ${{ env.PROJECT_PATH }}
+        echo "Updated version in ${{ env.PROJECT_PATH }} to $VERSION"
+
     - name: Restore dependencies
-      run: dotnet restore JonjubNet.Logging/JonjubNet.Logging.csproj
+      run: |
+        dotnet restore ${{ env.PROJECT_PATH }}
+        dotnet restore Tests/JonjubNet.Logging.Domain.Tests/JonjubNet.Logging.Domain.Tests.csproj
+        dotnet restore Tests/JonjubNet.Logging.Application.Tests/JonjubNet.Logging.Application.Tests.csproj
+        dotnet restore Tests/JonjubNet.Logging.Shared.Tests/JonjubNet.Logging.Shared.Tests.csproj
 
-    - name: Build
-      run: dotnet build JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-restore
+    - name: Build solution
+      run: |
+        dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+        dotnet build Tests/JonjubNet.Logging.Domain.Tests/JonjubNet.Logging.Domain.Tests.csproj --configuration Release --no-restore
+        dotnet build Tests/JonjubNet.Logging.Application.Tests/JonjubNet.Logging.Application.Tests.csproj --configuration Release --no-restore
+        dotnet build Tests/JonjubNet.Logging.Shared.Tests/JonjubNet.Logging.Shared.Tests.csproj --configuration Release --no-restore
 
-    - name: Test
-      run: dotnet test JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --verbosity normal
+    - name: Run tests
+      run: |
+        dotnet test Tests/JonjubNet.Logging.Domain.Tests/JonjubNet.Logging.Domain.Tests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        dotnet test Tests/JonjubNet.Logging.Application.Tests/JonjubNet.Logging.Application.Tests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        dotnet test Tests/JonjubNet.Logging.Shared.Tests/JonjubNet.Logging.Shared.Tests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
 
-    - name: Pack
-      run: dotnet pack JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --output ./packages
+    - name: Pack NuGet package
+      run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ./packages
 
     - name: Upload packages
       uses: actions/upload-artifact@v4
       with:
         name: nuget-packages
         path: ./packages/*.nupkg
+        retention-days: 30
 
   publish-nuget:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    # Solo publicar en test, main y tags (NO en feature branches)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test' || startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: read
+      packages: write
     
     steps:
     - name: Checkout code
@@ -58,13 +116,22 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Setup NuGet sources
+      run: |
+        dotnet nuget add source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json \
+          --name github \
+          --username ${{ github.repository_owner }} \
+          --password ${{ secrets.JONJUBNET_TOKEN }} \
+          --store-password-in-clear-text
+
     - name: Download packages
       uses: actions/download-artifact@v4
       with:
         name: nuget-packages
         path: ./packages
 
-    - name: Publish to NuGet.org
+    - name: Publish to NuGet.org (Production only)
+      if: env.NUGET_API_KEY != '' && github.ref == 'refs/heads/main'
       run: |
         dotnet nuget push ./packages/*.nupkg \
           --api-key ${{ secrets.NUGET_API_KEY }} \
@@ -73,11 +140,12 @@ jobs:
       env:
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
-    - name: Publish to GitHub Packages
+    - name: Publish to GitHub Packages (All branches)
+      if: env.JONJUBNET_TOKEN != ''
       run: |
         dotnet nuget push ./packages/*.nupkg \
           --api-key ${{ secrets.JONJUBNET_TOKEN }} \
-          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json \
+          --source github \
           --skip-duplicate
       env:
         JONJUBNET_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
@@ -86,12 +154,23 @@ jobs:
     needs: [build-and-test, publish-nuget]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION="${{ github.ref_name }}"
+        # Remove 'v' prefix if present
+        VERSION=${VERSION#v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
 
     - name: Download packages
       uses: actions/download-artifact@v4
@@ -105,10 +184,10 @@ jobs:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         body: |
-          ## JonjubNet.Logging ${{ github.ref_name }}
+          ## JonjubNet.Logging ${{ steps.version.outputs.version }}
           
           ### 📦 Packages
-          - **NuGet.org**: https://www.nuget.org/packages/JonjubNet.Logging/${{ github.ref_name }}
+          - **NuGet.org**: https://www.nuget.org/packages/JonjubNet.Logging/${{ steps.version.outputs.version }}
           - **GitHub Packages**: https://github.com/${{ github.repository }}/packages
           
           ### 📋 Changes
@@ -116,10 +195,10 @@ jobs:
           
           ### 🚀 Installation
           ```bash
-          dotnet add package JonjubNet.Logging --version ${{ github.ref_name }}
+          dotnet add package JonjubNet.Logging --version ${{ steps.version.outputs.version }}
           ```
         files: ./packages/*.nupkg
         draft: false
         prerelease: false
       env:
-        GITHUB_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
