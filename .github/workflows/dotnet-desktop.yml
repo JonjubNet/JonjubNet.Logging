@@ -38,7 +38,7 @@ jobs:
           echo "✅ Extracted version from tag: $VERSION"
         else
           # Leer versión del .csproj usando sed (más compatible)
-          VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' JonjubNet.Logging/JonjubNet.Logging.csproj | head -1)
+          VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj | head -1)
           if [ -z "$VERSION" ]; then
             echo "❌ Error: Could not extract version from .csproj"
             exit 1
@@ -58,26 +58,26 @@ jobs:
           exit 1
         fi
         # Actualizar la versión en el .csproj (compatible con Linux)
-        sed -i "s/<Version>.*<\/Version>/<Version>$VERSION<\/Version>/" JonjubNet.Logging/JonjubNet.Logging.csproj
+        sed -i "s/<Version>.*<\/Version>/<Version>$VERSION<\/Version>/" Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj
         echo "✅ Updated .csproj version to $VERSION"
         # Verificar el cambio
-        if grep -q "<Version>$VERSION</Version>" JonjubNet.Logging/JonjubNet.Logging.csproj; then
+        if grep -q "<Version>$VERSION</Version>" Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj; then
           echo "✅ Version update verified in .csproj"
         else
           echo "❌ Warning: Could not verify version update"
         fi
 
     - name: Restore dependencies
-      run: dotnet restore JonjubNet.Logging/JonjubNet.Logging.csproj
+      run: dotnet restore Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj
 
     - name: Build
-      run: dotnet build JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-restore
+      run: dotnet build Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-restore
 
     - name: Test
-      run: dotnet test JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --verbosity normal
+      run: dotnet test Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --verbosity normal
 
     - name: Pack
-      run: dotnet pack JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --output ./packages -p:Version=${{ steps.version.outputs.version }}
+      run: dotnet pack Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --output ./packages -p:Version=${{ steps.version.outputs.version }}
 
     - name: Upload packages
       uses: actions/upload-artifact@v4
