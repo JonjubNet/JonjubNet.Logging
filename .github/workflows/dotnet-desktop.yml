@@ -134,13 +134,40 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Setup GitHub CLI
+      run: |
+        gh --version
+
     - name: Download packages
       uses: actions/download-artifact@v4
       with:
         name: nuget-packages
         path: ./packages
 
-    - name: Create Release
+    - name: Check if release exists
+      id: check-release
+      run: |
+        if gh release view ${{ github.ref_name }} --json id >/dev/null 2>&1; then
+          IS_DRAFT=$(gh release view ${{ github.ref_name }} --json isDraft --jq '.isDraft')
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "is_draft=$IS_DRAFT" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "is_draft=false" >> $GITHUB_OUTPUT
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
+
+    - name: Delete existing draft release
+      if: steps.check-release.outputs.exists == 'true' && steps.check-release.outputs.is_draft == 'true'
+      run: |
+        echo "Deleting existing draft release..."
+        gh release delete ${{ github.ref_name }} --yes
+      env:
+        GITHUB_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
+
+    - name: Create Release with files
+      if: steps.check-release.outputs.exists == 'false' || steps.check-release.outputs.is_draft == 'true'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref_name }}
@@ -160,6 +187,31 @@ jobs:
           dotnet add package JonjubNet.Logging --version ${{ github.ref_name }}
           ```
         files: ./packages/*.nupkg
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
+
+    - name: Update Release description only
+      if: steps.check-release.outputs.exists == 'true' && steps.check-release.outputs.is_draft == 'false'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        body: |
+          ## JonjubNet.Logging ${{ github.ref_name }}
+          
+          ### 📦 Packages
+          - **NuGet.org**: https://www.nuget.org/packages/JonjubNet.Logging/${{ github.ref_name }}
+          - **GitHub Packages**: https://github.com/${{ github.repository }}/packages
+          
+          ### 📋 Changes
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for detailed changes.
+          
+          ### 🚀 Installation
+          ```bash
+          dotnet add package JonjubNet.Logging --version ${{ github.ref_name }}
+          ```
         draft: false
         prerelease: false
       env:
