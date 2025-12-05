@@ -187,8 +187,7 @@ jobs:
                   name: `Release ${tagName}`,
                   body: releaseBody,
                   draft: false,
-                  prerelease: false,
-                  make_latest: true
+                  prerelease: false
                 });
                 
                 console.log(`✅ Created new release for tag ${tagName} (ID: ${release.data.id})`);
