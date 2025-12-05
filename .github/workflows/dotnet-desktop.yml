@@ -143,6 +143,7 @@ jobs:
     - name: Check and create release
       id: create-release
       uses: actions/github-script@v7
+      continue-on-error: false
       with:
         github-token: ${{ secrets.JONJUBNET_TOKEN }}
         script: |
@@ -161,6 +162,9 @@ jobs:
           dotnet add package JonjubNet.Logging --version ${tagName}
           \`\`\``;
           
+          let releaseId;
+          let created = false;
+          
           try {
             // Verificar si el release ya existe
             const existingRelease = await github.rest.repos.getReleaseByTag({
@@ -169,34 +173,43 @@ jobs:
               tag: tagName
             });
             
-            console.log(`Release for tag ${tagName} already exists. Skipping creation.`);
-            core.setOutput('release_id', existingRelease.data.id);
-            core.setOutput('created', 'false');
+            console.log(`✅ Release for tag ${tagName} already exists (ID: ${existingRelease.data.id}). Will upload assets if needed.`);
+            releaseId = existingRelease.data.id;
+            created = false;
           } catch (error) {
             if (error.status === 404) {
               // El release no existe, crearlo
-              const release = await github.rest.repos.createRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag_name: tagName,
-                name: `Release ${tagName}`,
-                body: releaseBody,
-                draft: false,
-                prerelease: false,
-                make_latest: true
-              });
-              
-              console.log(`Created new release for tag ${tagName}`);
-              core.setOutput('release_id', release.data.id);
-              core.setOutput('created', 'true');
+              try {
+                const release = await github.rest.repos.createRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_name: tagName,
+                  name: `Release ${tagName}`,
+                  body: releaseBody,
+                  draft: false,
+                  prerelease: false,
+                  make_latest: true
+                });
+                
+                console.log(`✅ Created new release for tag ${tagName} (ID: ${release.data.id})`);
+                releaseId = release.data.id;
+                created = true;
+              } catch (createError) {
+                console.error('Error creating release:', createError);
+                throw createError;
+              }
             } else {
+              console.error('Error checking for existing release:', error);
               throw error;
             }
           }
+          
+          core.setOutput('release_id', releaseId);
+          core.setOutput('created', created.toString());
 
     - name: Upload release assets
-      if: steps.create-release.outputs.created == 'true'
       uses: actions/github-script@v7
+      continue-on-error: true
       with:
         github-token: ${{ secrets.JONJUBNET_TOKEN }}
         script: |
@@ -205,21 +218,52 @@ jobs:
           const releaseId = ${{ steps.create-release.outputs.release_id }};
           const packagesDir = './packages';
           
+          if (!fs.existsSync(packagesDir)) {
+            console.log('Packages directory does not exist. Skipping asset upload.');
+            return;
+          }
+          
           const files = fs.readdirSync(packagesDir)
             .filter(file => file.endsWith('.nupkg'))
             .map(file => path.join(packagesDir, file));
           
+          if (files.length === 0) {
+            console.log('No .nupkg files found. Skipping asset upload.');
+            return;
+          }
+          
+          // Obtener assets existentes del release
+          const existingAssets = await github.rest.repos.listReleaseAssets({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: releaseId
+          });
+          
+          const existingAssetNames = new Set(existingAssets.data.map(asset => asset.name));
+          
           for (const filePath of files) {
             const fileName = path.basename(filePath);
-            const fileContent = fs.readFileSync(filePath);
             
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: releaseId,
-              name: fileName,
-              data: fileContent
-            });
+            // Verificar si el asset ya existe
+            if (existingAssetNames.has(fileName)) {
+              console.log(`⏭️  Asset ${fileName} already exists. Skipping upload.`);
+              continue;
+            }
             
-            console.log(`Uploaded ${fileName} to release`);
+            try {
+              const fileContent = fs.readFileSync(filePath);
+              
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseId,
+                name: fileName,
+                data: fileContent
+              });
+              
+              console.log(`✅ Uploaded ${fileName} to release`);
+            } catch (uploadError) {
+              console.error(`❌ Error uploading ${fileName}:`, uploadError.message);
+              // Continuar con el siguiente archivo
+            }
           }
