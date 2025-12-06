@@ -13,7 +13,7 @@ on:
       - test
 
 env:
-  DOTNET_VERSION: '10.0.x'
+  DOTNET_VERSION: '9.0.x'
   PACKAGE_NAME: 'JonjubNet.Logging'
   PROJECT_PATH: 'Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj'
   SOLUTION_PATH: 'JonjubNet.Logging.slnx'
@@ -139,24 +139,20 @@ jobs:
         path: ./packages
 
     - name: Publish to NuGet.org (Production only)
-      if: env.NUGET_API_KEY != '' && github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' && secrets.NUGET_API_KEY != ''
       run: |
         dotnet nuget push ./packages/*.nupkg \
           --api-key ${{ secrets.NUGET_API_KEY }} \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
     - name: Publish to GitHub Packages (All branches)
-      if: env.JONJUBNET_TOKEN != ''
+      if: secrets.JONJUBNET_TOKEN != ''
       run: |
         dotnet nuget push ./packages/*.nupkg \
           --api-key ${{ secrets.JONJUBNET_TOKEN }} \
           --source github \
           --skip-duplicate
-      env:
-        JONJUBNET_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
 
   create-release:
     needs: [build-and-test, publish-nuget]
