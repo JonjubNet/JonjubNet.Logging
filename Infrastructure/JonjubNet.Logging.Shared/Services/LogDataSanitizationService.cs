@@ -39,7 +39,7 @@ namespace JonjubNet.Logging.Shared.Services
                 {
                     var sanitizedKey = prop.Key;
                     var sanitizedValue = SanitizeValue(prop.Key, prop.Value);
-                    sanitizedProperties[sanitizedKey] = sanitizedValue;
+                    sanitizedProperties[sanitizedKey] = sanitizedValue ?? (object)"***NULL***";
                 }
                 sanitized.Properties = sanitizedProperties;
             }
@@ -52,7 +52,7 @@ namespace JonjubNet.Logging.Shared.Services
                 {
                     var sanitizedKey = ctx.Key;
                     var sanitizedValue = SanitizeValue(ctx.Key, ctx.Value);
-                    sanitizedContext[sanitizedKey] = sanitizedValue;
+                    sanitizedContext[sanitizedKey] = sanitizedValue ?? (object)"***NULL***";
                 }
                 sanitized.Context = sanitizedContext;
             }
