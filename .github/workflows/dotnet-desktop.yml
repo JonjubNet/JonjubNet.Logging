@@ -143,27 +143,55 @@ jobs:
       env:
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       run: |
+        echo "🔍 Checking NuGet.org publication prerequisites..."
         if [ -z "$NUGET_API_KEY" ]; then
-          echo "⚠️ NUGET_API_KEY secret is not set. Skipping NuGet.org publication."
+          echo "⚠️ WARNING: NUGET_API_KEY secret is not set. Skipping NuGet.org publication."
+          echo "📝 To enable NuGet.org publication, configure the NUGET_API_KEY secret in repository settings."
           exit 0
         fi
+        
+        echo "✅ NUGET_API_KEY is configured. Proceeding with publication..."
+        echo "📦 Packages to publish:"
+        ls -lh ./packages/*.nupkg || echo "❌ No .nupkg files found in ./packages/"
+        
         dotnet nuget push ./packages/*.nupkg \
           --api-key "$NUGET_API_KEY" \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ Successfully published to NuGet.org"
+        else
+          echo "❌ Failed to publish to NuGet.org"
+          exit 1
+        fi
 
     - name: Publish to GitHub Packages (All branches)
       env:
         JONJUBNET_TOKEN: ${{ secrets.JONJUBNET_TOKEN }}
       run: |
+        echo "🔍 Checking GitHub Packages publication prerequisites..."
         if [ -z "$JONJUBNET_TOKEN" ]; then
-          echo "⚠️ JONJUBNET_TOKEN secret is not set. Skipping GitHub Packages publication."
+          echo "⚠️ WARNING: JONJUBNET_TOKEN secret is not set. Skipping GitHub Packages publication."
+          echo "📝 To enable GitHub Packages publication, configure the JONJUBNET_TOKEN secret in repository settings."
           exit 0
         fi
+        
+        echo "✅ JONJUBNET_TOKEN is configured. Proceeding with publication..."
+        echo "📦 Packages to publish:"
+        ls -lh ./packages/*.nupkg || echo "❌ No .nupkg files found in ./packages/"
+        
         dotnet nuget push ./packages/*.nupkg \
           --api-key "$JONJUBNET_TOKEN" \
           --source github \
           --skip-duplicate
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ Successfully published to GitHub Packages"
+        else
+          echo "❌ Failed to publish to GitHub Packages"
+          exit 1
+        fi
 
   create-release:
     needs: [build-and-test, publish-nuget]
