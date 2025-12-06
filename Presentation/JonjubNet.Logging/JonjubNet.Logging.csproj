@@ -44,15 +44,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj">
-      <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
     <ProjectReference Include="..\..\Core\JonjubNet.Logging.Domain\JonjubNet.Logging.Domain.csproj">
-      <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
     <ProjectReference Include="..\..\Infrastructure\JonjubNet.Logging.Shared\JonjubNet.Logging.Shared.csproj">
-      <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
   </ItemGroup>
