@@ -1,12 +1,7 @@
 # JonjubNet.Logging
 
-<<<<<<< HEAD
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-blue)
-![NuGet Version](https://img.shields.io/badge/nuget-v1.0.38-blue)
-=======
-![.NET Version](https://img.shields.io/badge/.NET-8.0-blue)
-![NuGet Version](https://img.shields.io/badge/nuget-v1.0.24-blue)
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
+![NuGet Version](https://img.shields.io/badge/nuget-v1.0.42-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 
@@ -68,19 +63,11 @@ Biblioteca de logging estructurado para aplicaciones .NET con soporte para múlt
 
 Instala **solo** el paquete principal:
 
-=======
-### Paso 1: Instalar el Paquete NuGet
-
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 ```bash
 dotnet add package JonjubNet.Logging
 ```
 
-<<<<<<< HEAD
 O desde el Package Manager Console en Visual Studio:
-=======
-O desde el Package Manager Console:
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 
 ```powershell
 Install-Package JonjubNet.Logging
@@ -115,21 +102,14 @@ El paquete incluye todas las dependencias necesarias:
 - Serilog y sus sinks
 - Microsoft.Extensions.*
 - Confluent.Kafka (para Kafka)
-<<<<<<< HEAD
 - Todos los ensamblados internos (Shared, Domain, Application)
-=======
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 
 ## 🚀 Quick Start
 
 El ejemplo más simple para empezar:
 
 ```csharp
-<<<<<<< HEAD
 // 1. Instalar el paquete (solo el principal)
-=======
-// 1. Instalar el paquete
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 dotnet add package JonjubNet.Logging
 
 // 2. Configurar appsettings.json
@@ -1418,10 +1398,7 @@ Este proyecto está licenciado bajo la licencia MIT.
 ---
 
 <<<<<<< HEAD
-**Versión**: 1.0.38
-=======
-**Versión**: 1.0.24
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
+**Versión**: 1.0.42
 
 **Autor**: JonjubNet
 

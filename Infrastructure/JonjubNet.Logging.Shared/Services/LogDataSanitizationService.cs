@@ -39,14 +39,7 @@ namespace JonjubNet.Logging.Shared.Services
                 {
                     var sanitizedKey = prop.Key;
                     var sanitizedValue = SanitizeValue(prop.Key, prop.Value);
-<<<<<<< HEAD
-                    if (sanitizedValue != null)
-                    {
-                        sanitizedProperties[sanitizedKey] = sanitizedValue;
-                    }
-=======
                     sanitizedProperties[sanitizedKey] = sanitizedValue;
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
                 }
                 sanitized.Properties = sanitizedProperties;
             }
@@ -59,14 +52,7 @@ namespace JonjubNet.Logging.Shared.Services
                 {
                     var sanitizedKey = ctx.Key;
                     var sanitizedValue = SanitizeValue(ctx.Key, ctx.Value);
-<<<<<<< HEAD
-                    if (sanitizedValue != null)
-                    {
-                        sanitizedContext[sanitizedKey] = sanitizedValue;
-                    }
-=======
                     sanitizedContext[sanitizedKey] = sanitizedValue;
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
                 }
                 sanitized.Context = sanitizedContext;
             }

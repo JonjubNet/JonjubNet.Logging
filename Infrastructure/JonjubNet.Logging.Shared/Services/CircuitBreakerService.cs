@@ -77,11 +77,7 @@ namespace JonjubNet.Logging.Shared.Services
 
                 return result;
             }
-<<<<<<< HEAD
             catch
-=======
-            catch (Exception ex)
->>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
             {
                 // Fallo - registrar y actualizar estado
                 lock (_lock)
