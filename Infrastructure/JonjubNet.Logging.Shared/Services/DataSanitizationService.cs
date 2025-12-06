@@ -150,7 +150,11 @@ namespace JonjubNet.Logging.Shared.Services
                     {
                         sanitized[key] = SanitizeString(stringified);
                     }
+<<<<<<< HEAD
                     else if (value != null)
+=======
+                    else
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
                     {
                         sanitized[key] = value;
                     }

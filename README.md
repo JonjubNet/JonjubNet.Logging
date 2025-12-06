@@ -1,7 +1,12 @@
 # JonjubNet.Logging
 
+<<<<<<< HEAD
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-blue)
 ![NuGet Version](https://img.shields.io/badge/nuget-v1.0.38-blue)
+=======
+![.NET Version](https://img.shields.io/badge/.NET-8.0-blue)
+![NuGet Version](https://img.shields.io/badge/nuget-v1.0.24-blue)
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 
@@ -54,6 +59,7 @@ Biblioteca de logging estructurado para aplicaciones .NET con soporte para múlt
 
 ## 📦 Instalación
 
+<<<<<<< HEAD
 ### ⚠️ Importante: Instalar Solo el Paquete Principal
 
 **NO intentes instalar los paquetes internos** (`JonjubNet.Logging.Shared`, `JonjubNet.Logging.Domain`, `JonjubNet.Logging.Application`). Estos son proyectos internos que se incluyen automáticamente en el paquete principal.
@@ -62,16 +68,25 @@ Biblioteca de logging estructurado para aplicaciones .NET con soporte para múlt
 
 Instala **solo** el paquete principal:
 
+=======
+### Paso 1: Instalar el Paquete NuGet
+
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 ```bash
 dotnet add package JonjubNet.Logging
 ```
 
+<<<<<<< HEAD
 O desde el Package Manager Console en Visual Studio:
+=======
+O desde el Package Manager Console:
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 
 ```powershell
 Install-Package JonjubNet.Logging
 ```
 
+<<<<<<< HEAD
 O desde el NuGet Package Manager UI, busca e instala solo `JonjubNet.Logging`.
 
 ### Paso 2: Verificar la Instalación
@@ -92,19 +107,29 @@ Después de instalar, verifica que en tu archivo `.csproj` aparezca:
 Estos se incluyen automáticamente en el paquete principal.
 
 ### Paso 3: Verificar Dependencias
+=======
+### Paso 2: Verificar Dependencias
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 
 El paquete incluye todas las dependencias necesarias:
 - Serilog y sus sinks
 - Microsoft.Extensions.*
 - Confluent.Kafka (para Kafka)
+<<<<<<< HEAD
 - Todos los ensamblados internos (Shared, Domain, Application)
+=======
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 
 ## 🚀 Quick Start
 
 El ejemplo más simple para empezar:
 
 ```csharp
+<<<<<<< HEAD
 // 1. Instalar el paquete (solo el principal)
+=======
+// 1. Instalar el paquete
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 dotnet add package JonjubNet.Logging
 
 // 2. Configurar appsettings.json
@@ -122,6 +147,7 @@ using JonjubNet.Logging;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddStructuredLoggingInfrastructure(builder.Configuration);
 
+<<<<<<< HEAD
 // 4. Inyectar y usar en tu código
 using JonjubNet.Logging.Application.Interfaces;
 
@@ -139,6 +165,10 @@ public class MiServicio
         _loggingService.LogInformation("Hello World!");
     }
 }
+=======
+// 4. Usar en tu código
+_loggingService.LogInformation("Hello World!");
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 ```
 
 **¡Listo!** Ya tienes logging estructurado funcionando. Para más opciones, consulta la [Configuración Completa](#-configuración-paso-a-paso) más abajo.
@@ -574,6 +604,7 @@ public class MiServicio
 
     public void MiMetodo()
     {
+<<<<<<< HEAD
         // Log simple
         _loggingService.LogInformation("Operación completada");
         
@@ -587,10 +618,14 @@ public class MiServicio
                 { "OrderId", "ORD-12345" },
                 { "Status", "Completed" }
             });
+=======
+        _loggingService.LogInformation("Operación completada", "MiMetodo", "Business");
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
     }
 }
 ```
 
+<<<<<<< HEAD
 **Nota:** El servicio `IStructuredLoggingService` está disponible automáticamente después de registrar el componente. No necesitas instalar paquetes adicionales.
 
 ## 🚀 Uso Básico
@@ -602,6 +637,10 @@ using JonjubNet.Logging.Application.Interfaces; // Para IStructuredLoggingServic
 using JonjubNet.Logging; // Para extensiones de configuración
 ```
 
+=======
+## 🚀 Uso Básico
+
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 ### Logging Simple
 
 ```csharp
@@ -741,9 +780,13 @@ _loggingService.LogAuditEvent("DataAccess", "Consulta de datos sensibles",
 ```csharp
 using JonjubNet.Logging.Domain.Entities;
 using JonjubNet.Logging.Domain.ValueObjects;
+<<<<<<< HEAD
 using JonjubNet.Logging.Application.Interfaces;
 
 // Crear una entrada de log personalizada
+=======
+
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 var customLogEntry = new StructuredLogEntry
 {
     ServiceName = "MiServicio",
@@ -758,7 +801,10 @@ var customLogEntry = new StructuredLogEntry
     }
 };
 
+<<<<<<< HEAD
 // Enviar el log personalizado
+=======
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 _loggingService.LogCustom(customLogEntry);
 ```
 
@@ -896,8 +942,12 @@ El componente soporta cambios dinámicos de configuración sin reiniciar:
 #### Cambio de Nivel por Categoría/Operación
 
 ```csharp
+<<<<<<< HEAD
 using JonjubNet.Logging.Application.Interfaces; // Para ILoggingConfigurationManager
 using Microsoft.AspNetCore.Mvc;
+=======
+using JonjubNet.Logging.Application.Interfaces;
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 
 // En un controlador o servicio
 public class LoggingController : ControllerBase
@@ -1049,7 +1099,11 @@ Si necesitas obtener información del usuario desde JWT, sesiones o headers pers
 #### Paso 1: Crear tu Implementación
 
 ```csharp
+<<<<<<< HEAD
 using JonjubNet.Logging.Application.Interfaces; // Para ICurrentUserService
+=======
+using JonjubNet.Logging.Application.Interfaces;
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 
@@ -1278,6 +1332,7 @@ JonjubNet.Logging/
 ### Problema: Error de compilación al instalar
 
 **Solución:**
+<<<<<<< HEAD
 1. **Asegúrate de instalar solo el paquete principal:**
    ```bash
    dotnet add package JonjubNet.Logging
@@ -1289,12 +1344,18 @@ JonjubNet.Logging/
 3. Verificar que todas las dependencias estén instaladas correctamente
 
 4. Limpiar y reconstruir la solución:
+=======
+1. Verificar versión de .NET (requiere .NET 8.0 o superior)
+2. Verificar que todas las dependencias estén instaladas correctamente
+3. Limpiar y reconstruir la solución:
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
    ```bash
    dotnet clean
    dotnet restore
    dotnet build
    ```
 
+<<<<<<< HEAD
 5. Si el error persiste, verifica que los namespaces estén correctamente importados:
    ```csharp
    using JonjubNet.Logging; // Para ServiceExtensions
@@ -1302,6 +1363,8 @@ JonjubNet.Logging/
    using JonjubNet.Logging.Shared; // Para extensiones de Shared (si es necesario)
    ```
 
+=======
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 ### Problema: Los logs no se envían a Elasticsearch/HTTP
 
 **Solución:**
@@ -1354,7 +1417,11 @@ Este proyecto está licenciado bajo la licencia MIT.
 
 ---
 
+<<<<<<< HEAD
 **Versión**: 1.0.38
+=======
+**Versión**: 1.0.24
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
 
 **Autor**: JonjubNet
 

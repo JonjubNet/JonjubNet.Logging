@@ -69,6 +69,7 @@ namespace JonjubNet.Logging.Shared.Services.Sinks
                 if (!string.IsNullOrEmpty(logEntry.RequestPath))
                 {
                     properties["RequestPath"] = logEntry.RequestPath;
+<<<<<<< HEAD
                     if (!string.IsNullOrEmpty(logEntry.RequestMethod))
                     {
                         properties["RequestMethod"] = logEntry.RequestMethod;
@@ -77,6 +78,10 @@ namespace JonjubNet.Logging.Shared.Services.Sinks
                     {
                         properties["StatusCode"] = logEntry.StatusCode.Value;
                     }
+=======
+                    properties["RequestMethod"] = logEntry.RequestMethod;
+                    properties["StatusCode"] = logEntry.StatusCode;
+>>>>>>> 6b8317a7f8fd86192c146f543abc241ef855a4cf
                 }
 
                 // Agregar información de usuario
