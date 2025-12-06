@@ -71,12 +71,14 @@ jobs:
       run: dotnet restore Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj
 
     - name: Build
+      # Construir el proyecto principal, lo cual construirá automáticamente los proyectos referenciados
       run: dotnet build Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-restore
 
     - name: Test
       run: dotnet test Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --verbosity normal
 
     - name: Pack
+      # Usar --no-build para empaquetar sin reconstruir, los ensamblados ya están disponibles
       run: dotnet pack Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj --configuration Release --no-build --output ./packages -p:Version=${{ steps.version.outputs.version }}
 
     - name: Upload packages
