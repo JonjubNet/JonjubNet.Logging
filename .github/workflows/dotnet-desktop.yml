@@ -139,7 +139,7 @@ jobs:
         path: ./packages
 
     - name: Publish to NuGet.org (Production only)
-      if: github.ref == 'refs/heads/main' && secrets.NUGET_API_KEY != ''
+      if: github.ref == 'refs/heads/main' && ${{ secrets.NUGET_API_KEY != '' }}
       run: |
         dotnet nuget push ./packages/*.nupkg \
           --api-key ${{ secrets.NUGET_API_KEY }} \
@@ -147,7 +147,7 @@ jobs:
           --skip-duplicate
 
     - name: Publish to GitHub Packages (All branches)
-      if: secrets.JONJUBNET_TOKEN != ''
+      if: ${{ secrets.JONJUBNET_TOKEN != '' }}
       run: |
         dotnet nuget push ./packages/*.nupkg \
           --api-key ${{ secrets.JONJUBNET_TOKEN }} \
