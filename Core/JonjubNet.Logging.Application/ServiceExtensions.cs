@@ -1,6 +1,7 @@
 using JonjubNet.Logging.Application.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace JonjubNet.Logging.Application
 {
@@ -22,7 +23,19 @@ namespace JonjubNet.Logging.Application
             // NOTA: Deben ser Singleton porque StructuredLoggingService (Singleton) los necesita
             // y AddSharedInfrastructure intenta resolverlos desde el root provider
             services.AddSingleton<UseCases.CreateLogEntryUseCase>();
-            services.AddSingleton<UseCases.EnrichLogEntryUseCase>();
+            // EnrichLogEntryUseCase: ICurrentUserService ahora es Singleton (usa IHttpContextAccessor que es thread-safe)
+            services.AddSingleton<UseCases.EnrichLogEntryUseCase>(sp =>
+            {
+                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                var httpContextProvider = sp.GetService<IHttpContextProvider>();
+                var currentUserService = sp.GetService<ICurrentUserService>();
+                var scopeManager = sp.GetService<ILogScopeManager>();
+                return new UseCases.EnrichLogEntryUseCase(
+                    configManager, 
+                    httpContextProvider, 
+                    currentUserService,
+                    scopeManager);
+            });
             services.AddSingleton<UseCases.SendLogUseCase>(sp =>
             {
                 var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<UseCases.SendLogUseCase>>();

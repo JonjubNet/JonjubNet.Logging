@@ -14,7 +14,7 @@
     
     <!-- NuGet Package Properties -->
     <PackageId>JonjubNet.Logging</PackageId>
-    <Version>3.0.7</Version>
+    <Version>3.0.8</Version>
     <Authors>Onuar Jimenez</Authors>
     <Company>JonjubNet</Company>
     <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual. Optimizado para .NET 10 y C# 13.</Description>

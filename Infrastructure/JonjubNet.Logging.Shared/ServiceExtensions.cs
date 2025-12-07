@@ -61,10 +61,13 @@ namespace JonjubNet.Logging.Shared
 
             // Registrar IHttpContextAccessor e IHttpContextProvider (condicional - solo si ASP.NET Core está disponible)
             // Usar conditional compilation en lugar de reflection para AOT-friendly
+            // NOTA: IHttpContextProvider debe ser Singleton porque EnrichLogEntryUseCase (Singleton) lo necesita
             RegisterHttpContextServices(services);
 
-            // Registrar ICurrentUserService
-            services.AddScoped<ICurrentUserService, TUserService>();
+            // Registrar ICurrentUserService como Singleton
+            // NOTA: Debe ser Singleton porque EnrichLogEntryUseCase (Singleton) lo necesita
+            // IHttpContextAccessor es thread-safe y Singleton, por lo que ICurrentUserService puede ser Singleton también
+            services.AddSingleton<ICurrentUserService, TUserService>();
 
             // Registrar IErrorCategorizationService
             services.AddScoped<IErrorCategorizationService, ErrorCategorizationService>();
@@ -199,10 +202,13 @@ namespace JonjubNet.Logging.Shared
 
             // Registrar IHttpContextAccessor e IHttpContextProvider (condicional - solo si ASP.NET Core está disponible)
             // Usar conditional compilation en lugar de reflection para AOT-friendly
+            // NOTA: IHttpContextProvider debe ser Singleton porque EnrichLogEntryUseCase (Singleton) lo necesita
             RegisterHttpContextServices(services);
 
-            // Registrar ICurrentUserService
-            services.AddScoped<ICurrentUserService, TUserService>();
+            // Registrar ICurrentUserService como Singleton
+            // NOTA: Debe ser Singleton porque EnrichLogEntryUseCase (Singleton) lo necesita
+            // IHttpContextAccessor es thread-safe y Singleton, por lo que ICurrentUserService puede ser Singleton también
+            services.AddSingleton<ICurrentUserService, TUserService>();
 
             // Registrar IErrorCategorizationService
             services.AddScoped<IErrorCategorizationService, ErrorCategorizationService>();
@@ -297,11 +303,14 @@ namespace JonjubNet.Logging.Shared
         {
 #if ASPNETCORE
             // ASP.NET Core está disponible - usar implementación real
+            // NOTA: IHttpContextProvider debe ser Singleton porque EnrichLogEntryUseCase (Singleton) lo necesita
+            // IHttpContextAccessor es thread-safe y puede ser Singleton
             services.AddHttpContextAccessor();
-            services.AddScoped<IHttpContextProvider, AspNetCoreHttpContextProvider>();
+            services.AddSingleton<IHttpContextProvider, AspNetCoreHttpContextProvider>();
 #else
             // ASP.NET Core no está disponible - usar implementación null
-            services.AddScoped<IHttpContextProvider, NullHttpContextProvider>();
+            // NOTA: IHttpContextProvider debe ser Singleton porque EnrichLogEntryUseCase (Singleton) lo necesita
+            services.AddSingleton<IHttpContextProvider, NullHttpContextProvider>();
 #endif
         }
 

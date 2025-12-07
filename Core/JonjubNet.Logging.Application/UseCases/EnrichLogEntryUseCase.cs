@@ -1,6 +1,7 @@
 using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Domain.Entities;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace JonjubNet.Logging.Application.UseCases
 {
