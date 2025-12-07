@@ -14,7 +14,7 @@
     
     <!-- NuGet Package Properties -->
     <PackageId>JonjubNet.Logging</PackageId>
-    <Version>3.0.5</Version>
+    <Version>3.0.6</Version>
     <Authors>Onuar Jimenez</Authors>
     <Company>JonjubNet</Company>
     <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual. Optimizado para .NET 10 y C# 13.</Description>
@@ -62,21 +62,49 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Referencias a proyectos internos - incluir en paquete NuGet para que los tipos públicos sean accesibles -->
-    <!-- PrivateAssets: none permite que los ensamblados se incluyan automáticamente en lib/ -->
+    <!-- Referencias a proyectos internos - NO crear dependencias de paquete NuGet -->
+    <!-- PrivateAssets: All evita que se creen dependencias de paquete para proyectos internos -->
     <ProjectReference Include="..\..\Core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj">
-      <PrivateAssets>none</PrivateAssets>
+      <PrivateAssets>All</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
     <ProjectReference Include="..\..\Core\JonjubNet.Logging.Domain\JonjubNet.Logging.Domain.csproj">
-      <PrivateAssets>none</PrivateAssets>
+      <PrivateAssets>All</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
     <ProjectReference Include="..\..\Infrastructure\JonjubNet.Logging.Shared\JonjubNet.Logging.Shared.csproj">
-      <PrivateAssets>none</PrivateAssets>
+      <PrivateAssets>All</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
   </ItemGroup>
+  
+  <!-- Target para incluir explícitamente los ensamblados de proyectos internos en lib/ del paquete NuGet -->
+  <Target Name="IncludeReferencedAssembliesInPackage" AfterTargets="Build" BeforeTargets="GenerateNuspec">
+    <PropertyGroup>
+      <_ApplicationDllPath>$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Application\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Application.dll</_ApplicationDllPath>
+      <_DomainDllPath>$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Domain\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Domain.dll</_DomainDllPath>
+      <_SharedDllPath>$(MSBuildProjectDirectory)\..\..\Infrastructure\JonjubNet.Logging.Shared\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Shared.dll</_SharedDllPath>
+    </PropertyGroup>
+    <ItemGroup Condition="Exists('$(_ApplicationDllPath)')">
+      <TfmSpecificPackageFile Include="$(_ApplicationDllPath)">
+        <PackagePath>lib/$(TargetFramework)/JonjubNet.Logging.Application.dll</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+    <ItemGroup Condition="Exists('$(_DomainDllPath)')">
+      <TfmSpecificPackageFile Include="$(_DomainDllPath)">
+        <PackagePath>lib/$(TargetFramework)/JonjubNet.Logging.Domain.dll</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+    <ItemGroup Condition="Exists('$(_SharedDllPath)')">
+      <TfmSpecificPackageFile Include="$(_SharedDllPath)">
+        <PackagePath>lib/$(TargetFramework)/JonjubNet.Logging.Shared.dll</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+  
+  <PropertyGroup>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeReferencedAssembliesInPackage</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
   
 
   <ItemGroup>
