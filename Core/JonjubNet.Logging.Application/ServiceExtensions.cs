@@ -18,10 +18,12 @@ namespace JonjubNet.Logging.Application
         {
             var assembly = Assembly.GetExecutingAssembly();
 
-            // Registrar casos de uso
-            services.AddScoped<UseCases.CreateLogEntryUseCase>();
-            services.AddScoped<UseCases.EnrichLogEntryUseCase>();
-            services.AddScoped<UseCases.SendLogUseCase>(sp =>
+            // Registrar casos de uso como Singleton
+            // NOTA: Deben ser Singleton porque StructuredLoggingService (Singleton) los necesita
+            // y AddSharedInfrastructure intenta resolverlos desde el root provider
+            services.AddSingleton<UseCases.CreateLogEntryUseCase>();
+            services.AddSingleton<UseCases.EnrichLogEntryUseCase>();
+            services.AddSingleton<UseCases.SendLogUseCase>(sp =>
             {
                 var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<UseCases.SendLogUseCase>>();
                 var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();

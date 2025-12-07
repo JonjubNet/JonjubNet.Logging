@@ -1,3 +1,4 @@
+using JonjubNet.Logging.Application;
 using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Application.UseCases;
@@ -43,6 +44,10 @@ namespace JonjubNet.Logging.Shared
             IConfiguration configuration)
             where TUserService : class, ICurrentUserService
         {
+            // ✅ PRIMERO: Registrar servicios de Application (UseCases)
+            // Debe registrarse ANTES de intentar resolverlos
+            services.AddApplicationServices();
+            
             // Registrar configuración con IOptionsMonitor para Hot-Reload
             services.Configure<LoggingConfiguration>(
                 configuration.GetSection(LoggingConfiguration.SectionName));
@@ -67,8 +72,9 @@ namespace JonjubNet.Logging.Shared
             // Registrar LogScopeManager (singleton para mantener estado entre requests)
             services.AddSingleton<ILogScopeManager, LogScopeManager>();
 
-            // Registrar ILogFilter
-            services.AddScoped<ILogFilter, LogFilterService>();
+            // Registrar ILogFilter como Singleton
+            // NOTA: Debe ser Singleton porque SendLogUseCase (Singleton) lo necesita
+            services.AddSingleton<ILogFilter, LogFilterService>();
 
             // Registrar ILogSamplingService (singleton con TimeProvider)
             services.AddSingleton<ILogSamplingService>(sp =>
@@ -78,8 +84,9 @@ namespace JonjubNet.Logging.Shared
                 return new LogSamplingService(configManager, timeProvider);
             });
 
-            // Registrar IDataSanitizationService
-            services.AddScoped<IDataSanitizationService, DataSanitizationService>();
+            // Registrar IDataSanitizationService como Singleton
+            // NOTA: Debe ser Singleton porque SendLogUseCase (Singleton) lo necesita
+            services.AddSingleton<IDataSanitizationService, DataSanitizationService>();
 
             // Registrar servicios de resiliencia
             services.AddSingleton<ICircuitBreakerManager>(sp =>
@@ -111,6 +118,7 @@ namespace JonjubNet.Logging.Shared
             if (IsHostedServiceAvailable())
             {
                 // Registrar IntelligentLogProcessor con todas sus dependencias
+                // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
                 services.AddHostedService<IntelligentLogProcessor>(sp =>
                 {
                     var logger = sp.GetRequiredService<ILogger<IntelligentLogProcessor>>();
@@ -143,6 +151,7 @@ namespace JonjubNet.Logging.Shared
 
             // Registrar IStructuredLoggingService (inyectar LogQueue)
             // Usar ILoggerFactory en lugar de ILogger<T> para Singletons
+            // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
             services.AddSingleton<IStructuredLoggingService>(sp =>
             {
                 var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
@@ -177,6 +186,10 @@ namespace JonjubNet.Logging.Shared
             IConfiguration configuration)
             where TUserService : class, ICurrentUserService
         {
+            // ✅ PRIMERO: Registrar servicios de Application (UseCases)
+            // Debe registrarse ANTES de intentar resolverlos
+            services.AddApplicationServices();
+            
             // Registrar configuración con IOptionsMonitor para Hot-Reload
             services.Configure<LoggingConfiguration>(
                 configuration.GetSection(LoggingConfiguration.SectionName));
@@ -197,8 +210,9 @@ namespace JonjubNet.Logging.Shared
             // Registrar LogScopeManager (singleton para mantener estado entre requests)
             services.AddSingleton<ILogScopeManager, LogScopeManager>();
 
-            // Registrar ILogFilter
-            services.AddScoped<ILogFilter, LogFilterService>();
+            // Registrar ILogFilter como Singleton
+            // NOTA: Debe ser Singleton porque SendLogUseCase (Singleton) lo necesita
+            services.AddSingleton<ILogFilter, LogFilterService>();
 
             // Registrar ILogSamplingService (singleton con TimeProvider)
             services.AddSingleton<ILogSamplingService>(sp =>
@@ -208,8 +222,9 @@ namespace JonjubNet.Logging.Shared
                 return new LogSamplingService(configManager, timeProvider);
             });
 
-            // Registrar IDataSanitizationService
-            services.AddScoped<IDataSanitizationService, DataSanitizationService>();
+            // Registrar IDataSanitizationService como Singleton
+            // NOTA: Debe ser Singleton porque SendLogUseCase (Singleton) lo necesita
+            services.AddSingleton<IDataSanitizationService, DataSanitizationService>();
 
             // Registrar servicios de resiliencia
             services.AddSingleton<ICircuitBreakerManager>(sp =>
@@ -226,6 +241,7 @@ namespace JonjubNet.Logging.Shared
             services.AddSingleton<ILogQueue>(sp => sp.GetRequiredService<LogQueue>());
 
             // Registrar SynchronousLogProcessor en lugar de BackgroundService
+            // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
             services.AddSingleton<SynchronousLogProcessor>(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<SynchronousLogProcessor>>();
@@ -251,6 +267,7 @@ namespace JonjubNet.Logging.Shared
 
             // Registrar IStructuredLoggingService (inyectar LogQueue)
             // Usar ILoggerFactory en lugar de ILogger<T> para Singletons
+            // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
             services.AddSingleton<IStructuredLoggingService>(sp =>
             {
                 var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
