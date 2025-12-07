@@ -69,8 +69,9 @@ namespace JonjubNet.Logging.Shared
             // IHttpContextAccessor es thread-safe y Singleton, por lo que ICurrentUserService puede ser Singleton también
             services.AddSingleton<ICurrentUserService, TUserService>();
 
-            // Registrar IErrorCategorizationService
-            services.AddScoped<IErrorCategorizationService, ErrorCategorizationService>();
+            // Registrar IErrorCategorizationService como Singleton
+            // NOTA: Debe ser Singleton porque puede ser usado desde servicios Singleton
+            services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
 
             // Registrar LogScopeManager (singleton para mantener estado entre requests)
             services.AddSingleton<ILogScopeManager, LogScopeManager>();
@@ -210,8 +211,9 @@ namespace JonjubNet.Logging.Shared
             // IHttpContextAccessor es thread-safe y Singleton, por lo que ICurrentUserService puede ser Singleton también
             services.AddSingleton<ICurrentUserService, TUserService>();
 
-            // Registrar IErrorCategorizationService
-            services.AddScoped<IErrorCategorizationService, ErrorCategorizationService>();
+            // Registrar IErrorCategorizationService como Singleton
+            // NOTA: Debe ser Singleton porque puede ser usado desde servicios Singleton
+            services.AddSingleton<IErrorCategorizationService, ErrorCategorizationService>();
 
             // Registrar LogScopeManager (singleton para mantener estado entre requests)
             services.AddSingleton<ILogScopeManager, LogScopeManager>();
