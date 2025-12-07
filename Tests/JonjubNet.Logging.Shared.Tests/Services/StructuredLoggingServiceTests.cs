@@ -16,7 +16,8 @@ namespace JonjubNet.Logging.Shared.Tests.Services
     /// </summary>
     public class StructuredLoggingServiceTests
     {
-        private readonly Mock<ILogger<StructuredLoggingService>> _loggerMock;
+        private readonly Mock<ILoggerFactory> _loggerFactoryMock;
+        private readonly Mock<ILogger> _loggerMock;
         private readonly Mock<ILogger<SendLogUseCase>> _sendLoggerMock;
         private readonly CreateLogEntryUseCase _createUseCase;
         private readonly EnrichLogEntryUseCase _enrichUseCase;
@@ -27,7 +28,9 @@ namespace JonjubNet.Logging.Shared.Tests.Services
 
         public StructuredLoggingServiceTests()
         {
-            _loggerMock = new Mock<ILogger<StructuredLoggingService>>();
+            _loggerMock = new Mock<ILogger>();
+            _loggerFactoryMock = new Mock<ILoggerFactory>();
+            _loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(_loggerMock.Object);
             _sendLoggerMock = new Mock<ILogger<SendLogUseCase>>();
             _createUseCase = new CreateLogEntryUseCase();
             var defaultConfig = new LoggingConfiguration();
@@ -56,7 +59,7 @@ namespace JonjubNet.Logging.Shared.Tests.Services
             var configManagerMock = CreateConfigurationManagerMock(_configuration);
 
             return new StructuredLoggingService(
-                _loggerMock.Object,
+                _loggerFactoryMock.Object,
                 configManagerMock.Object,
                 _createUseCase,
                 _enrichUseCase,

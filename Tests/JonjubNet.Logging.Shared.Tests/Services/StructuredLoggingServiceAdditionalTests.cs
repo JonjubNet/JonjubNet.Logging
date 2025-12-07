@@ -21,14 +21,16 @@ namespace JonjubNet.Logging.Shared.Tests.Services
             // Arrange
             var config = new LoggingConfiguration { Enabled = true };
             var configManagerMock = CreateConfigurationManagerMock(config);
-            var loggerMock = new Mock<ILogger<StructuredLoggingService>>();
+            var loggerMock = new Mock<ILogger>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+            loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(loggerMock.Object);
             var queueMock = new Mock<ILogQueue>();
             queueMock.Setup(x => x.TryEnqueue(It.IsAny<StructuredLogEntry>())).Returns(true);
             var scopeManagerMock = new Mock<ILogScopeManager>();
 
             var sendLoggerMock = new Mock<ILogger<SendLogUseCase>>();
             var service = new StructuredLoggingService(
-                loggerMock.Object,
+                loggerFactoryMock.Object,
                 configManagerMock.Object,
                 new CreateLogEntryUseCase(),
                 new EnrichLogEntryUseCase(configManagerMock.Object),
@@ -52,14 +54,16 @@ namespace JonjubNet.Logging.Shared.Tests.Services
             // Arrange
             var config = new LoggingConfiguration { Enabled = true };
             var configManagerMock = CreateConfigurationManagerMock(config);
-            var loggerMock = new Mock<ILogger<StructuredLoggingService>>();
+            var loggerMock = new Mock<ILogger>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+            loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(loggerMock.Object);
             var queueMock = new Mock<ILogQueue>();
             queueMock.Setup(x => x.TryEnqueue(It.IsAny<StructuredLogEntry>())).Returns(true);
             var scopeManagerMock = new Mock<ILogScopeManager>();
 
             var sendLoggerMock = new Mock<ILogger<SendLogUseCase>>();
             var service = new StructuredLoggingService(
-                loggerMock.Object,
+                loggerFactoryMock.Object,
                 configManagerMock.Object,
                 new CreateLogEntryUseCase(),
                 new EnrichLogEntryUseCase(configManagerMock.Object),
@@ -83,14 +87,16 @@ namespace JonjubNet.Logging.Shared.Tests.Services
             // Arrange
             var config = new LoggingConfiguration { Enabled = true };
             var configManagerMock = CreateConfigurationManagerMock(config);
-            var loggerMock = new Mock<ILogger<StructuredLoggingService>>();
+            var loggerMock = new Mock<ILogger>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+            loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(loggerMock.Object);
             var queueMock = new Mock<ILogQueue>();
             queueMock.Setup(x => x.TryEnqueue(It.IsAny<StructuredLogEntry>())).Returns(true);
             var scopeManagerMock = new Mock<ILogScopeManager>();
 
             var sendLoggerMock = new Mock<ILogger<SendLogUseCase>>();
             var service = new StructuredLoggingService(
-                loggerMock.Object,
+                loggerFactoryMock.Object,
                 configManagerMock.Object,
                 new CreateLogEntryUseCase(),
                 new EnrichLogEntryUseCase(configManagerMock.Object),
@@ -114,14 +120,16 @@ namespace JonjubNet.Logging.Shared.Tests.Services
             // Arrange
             var config = new LoggingConfiguration { Enabled = true };
             var configManagerMock = CreateConfigurationManagerMock(config);
-            var loggerMock = new Mock<ILogger<StructuredLoggingService>>();
+            var loggerMock = new Mock<ILogger>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+            loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(loggerMock.Object);
             var queueMock = new Mock<ILogQueue>();
             queueMock.Setup(x => x.TryEnqueue(It.IsAny<StructuredLogEntry>())).Returns(true);
             var scopeManagerMock = new Mock<ILogScopeManager>();
 
             var sendLoggerMock = new Mock<ILogger<SendLogUseCase>>();
             var service = new StructuredLoggingService(
-                loggerMock.Object,
+                loggerFactoryMock.Object,
                 configManagerMock.Object,
                 new CreateLogEntryUseCase(),
                 new EnrichLogEntryUseCase(configManagerMock.Object),
@@ -145,12 +153,14 @@ namespace JonjubNet.Logging.Shared.Tests.Services
             // Arrange
             var config = new LoggingConfiguration { Enabled = true };
             var configManagerMock = CreateConfigurationManagerMock(config);
-            var loggerMock = new Mock<ILogger<StructuredLoggingService>>();
+            var loggerMock = new Mock<ILogger>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+            loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(loggerMock.Object);
             var scopeManagerMock = new Mock<ILogScopeManager>();
 
             var sendLoggerMock = new Mock<ILogger<SendLogUseCase>>();
             var service = new StructuredLoggingService(
-                loggerMock.Object,
+                loggerFactoryMock.Object,
                 configManagerMock.Object,
                 new CreateLogEntryUseCase(),
                 new EnrichLogEntryUseCase(configManagerMock.Object),
@@ -176,14 +186,16 @@ namespace JonjubNet.Logging.Shared.Tests.Services
             // Arrange
             var config = new LoggingConfiguration { Enabled = true };
             var configManagerMock = CreateConfigurationManagerMock(config);
-            var loggerMock = new Mock<ILogger<StructuredLoggingService>>();
+            var loggerMock = new Mock<ILogger>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+            loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(loggerMock.Object);
             var queueMock = new Mock<ILogQueue>();
             queueMock.Setup(x => x.TryEnqueue(It.IsAny<StructuredLogEntry>())).Returns(true);
             var scopeManagerMock = new Mock<ILogScopeManager>();
 
             var sendLoggerMock = new Mock<ILogger<SendLogUseCase>>();
             var service = new StructuredLoggingService(
-                loggerMock.Object,
+                loggerFactoryMock.Object,
                 configManagerMock.Object,
                 new CreateLogEntryUseCase(),
                 new EnrichLogEntryUseCase(configManagerMock.Object),

@@ -272,7 +272,7 @@ namespace JonjubNet.Logging.Shared.Services
         private void Log(LogLevelValue logLevel, string message, string operation, string category, Dictionary<string, object>? properties, Dictionary<string, object>? context, Exception? exception = null)
         {
             ArgumentNullException.ThrowIfNull(message);
-        {
+
             if (!_configurationManager.Current.Enabled)
                 return;
 
