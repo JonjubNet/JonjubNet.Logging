@@ -14,7 +14,7 @@
     
     <!-- NuGet Package Properties -->
     <PackageId>JonjubNet.Logging</PackageId>
-    <Version>3.0.3</Version>
+    <Version>3.0.4</Version>
     <Authors>Onuar Jimenez</Authors>
     <Company>JonjubNet</Company>
     <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual. Optimizado para .NET 10 y C# 13.</Description>
@@ -86,16 +86,18 @@
   
   <!-- Asegurar que los ensamblados de los proyectos referenciados se incluyan en el paquete NuGet -->
   <PropertyGroup>
-    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);CopyProjectReferencesToPackage</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
   
   <!-- Target para incluir los ensamblados de los proyectos referenciados en el paquete -->
-  <!-- Esto asegura que los ensamblados se incluyan directamente sin crear dependencias de paquetes -->
+  <!-- Esto asegura que los ensamblados se incluyan en lib/ para que los tipos sean accesibles -->
   <Target Name="CopyProjectReferencesToPackage" BeforeTargets="GenerateNuspec">
     <ItemGroup>
-      <!-- Incluir todos los ensamblados DLL de las referencias de proyecto -->
-      <!-- Esto incluye los ensamblados directamente en el paquete sin crear dependencias NuGet -->
-      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths-&gt;WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+      <!-- Incluir todos los ensamblados DLL de las referencias de proyecto en lib/ -->
+      <!-- Esto expone los tipos públicos para compilación e IntelliSense -->
+      <TfmSpecificPackageFile Include="@(ReferenceCopyLocalPaths-&gt;WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))">
+        <PackagePath>lib/$(TargetFramework)/</PackagePath>
+      </TfmSpecificPackageFile>
     </ItemGroup>
   </Target>
 
