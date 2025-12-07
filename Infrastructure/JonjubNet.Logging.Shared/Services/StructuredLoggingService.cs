@@ -11,9 +11,13 @@ namespace JonjubNet.Logging.Shared.Services
     /// Implementación del servicio de logging estructurado
     /// Esta implementación está en Infrastructure siguiendo Clean Architecture
     /// </summary>
+    /// <summary>
+    /// Implementación mejorada del servicio de logging estructurado.
+    /// Optimizado para .NET 10: usa ILoggerFactory en lugar de ILogger&lt;T&gt; para Singletons.
+    /// </summary>
     public class StructuredLoggingService : IStructuredLoggingService
     {
-        private readonly ILogger<StructuredLoggingService> _logger;
+        private readonly ILogger _logger;
         private readonly ILoggingConfigurationManager _configurationManager;
         private readonly CreateLogEntryUseCase _createLogEntryUseCase;
         private readonly EnrichLogEntryUseCase _enrichLogEntryUseCase;
@@ -24,8 +28,21 @@ namespace JonjubNet.Logging.Shared.Services
         private readonly ILogQueue? _logQueue;
         private readonly IPriorityLogQueue? _priorityQueue;
 
+        /// <summary>
+        /// Inicializa una nueva instancia de StructuredLoggingService.
+        /// </summary>
+        /// <param name="loggerFactory">Factory para crear loggers (mejor para Singletons).</param>
+        /// <param name="configurationManager">Gestor de configuración de logging.</param>
+        /// <param name="createLogEntryUseCase">Caso de uso para crear entradas de log.</param>
+        /// <param name="enrichLogEntryUseCase">Caso de uso para enriquecer entradas de log.</param>
+        /// <param name="sendLogUseCase">Caso de uso para enviar logs.</param>
+        /// <param name="sinks">Colección de sinks de log.</param>
+        /// <param name="scopeManager">Gestor de scopes de log.</param>
+        /// <param name="kafkaProducer">Productor de Kafka opcional.</param>
+        /// <param name="logQueue">Cola de logs opcional.</param>
+        /// <param name="priorityQueue">Cola de logs prioritaria opcional.</param>
         public StructuredLoggingService(
-            ILogger<StructuredLoggingService> logger,
+            ILoggerFactory loggerFactory,
             ILoggingConfigurationManager configurationManager,
             CreateLogEntryUseCase createLogEntryUseCase,
             EnrichLogEntryUseCase enrichLogEntryUseCase,
@@ -36,7 +53,8 @@ namespace JonjubNet.Logging.Shared.Services
             ILogQueue? logQueue = null,
             IPriorityLogQueue? priorityQueue = null)
         {
-            _logger = logger;
+            ArgumentNullException.ThrowIfNull(loggerFactory);
+            _logger = loggerFactory.CreateLogger("JonjubNet.Logging.StructuredLoggingService");
             _configurationManager = configurationManager;
             _createLogEntryUseCase = createLogEntryUseCase;
             _enrichLogEntryUseCase = enrichLogEntryUseCase;
@@ -48,32 +66,32 @@ namespace JonjubNet.Logging.Shared.Services
             _priorityQueue = priorityQueue;
         }
 
-        public void LogInformation(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null)
+        public void LogInformation(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default)
         {
             Log(LogLevelValue.Information, message, operation, category, properties, context);
         }
 
-        public void LogWarning(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null, Exception? exception = null)
+        public void LogWarning(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default, Exception? exception = null)
         {
             Log(LogLevelValue.Warning, message, operation, category, properties, context, exception);
         }
 
-        public void LogError(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null, Exception? exception = null)
+        public void LogError(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default, Exception? exception = null)
         {
             Log(LogLevelValue.Error, message, operation, category, properties, context, exception);
         }
 
-        public void LogCritical(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null, Exception? exception = null)
+        public void LogCritical(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default, Exception? exception = null)
         {
             Log(LogLevelValue.Critical, message, operation, category, properties, context, exception);
         }
 
-        public void LogDebug(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null)
+        public void LogDebug(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default)
         {
             Log(LogLevelValue.Debug, message, operation, category, properties, context);
         }
 
-        public void LogTrace(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null)
+        public void LogTrace(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default)
         {
             Log(LogLevelValue.Trace, message, operation, category, properties, context);
         }
@@ -143,7 +161,7 @@ namespace JonjubNet.Logging.Shared.Services
             }
         }
 
-        public void LogOperationStart(string operation, string category = "", Dictionary<string, object>? properties = null)
+        public void LogOperationStart(string operation, string category = "", Dictionary<string, object>? properties = default)
         {
             var logEntry = _createLogEntryUseCase.Execute(
                 $"Operación iniciada: {operation}",
@@ -157,14 +175,15 @@ namespace JonjubNet.Logging.Shared.Services
             LogCustom(logEntry);
         }
 
-        public void LogOperationEnd(string operation, string category = "", long executionTimeMs = 0, Dictionary<string, object>? properties = null, bool success = true, Exception? exception = null)
+        public void LogOperationEnd(string operation, string category = "", long executionTimeMs = 0, Dictionary<string, object>? properties = default, bool success = true, Exception? exception = null)
         {
             var message = success 
                 ? $"Operación completada: {operation} (Tiempo: {executionTimeMs}ms)"
                 : $"Operación fallida: {operation} (Tiempo: {executionTimeMs}ms)";
 
             var logLevel = success ? LogLevelValue.Information : LogLevelValue.Error;
-            var props = properties ?? new Dictionary<string, object>();
+            // Usar collection expression de C# 13 si properties es null
+            var props = properties ?? [];
             props["ExecutionTimeMs"] = executionTimeMs;
             props["Success"] = success;
 
@@ -181,9 +200,10 @@ namespace JonjubNet.Logging.Shared.Services
             LogCustom(logEntry);
         }
 
-        public void LogUserAction(string action, string entityType = "", string entityId = "", Dictionary<string, object>? properties = null)
+        public void LogUserAction(string action, string entityType = "", string entityId = "", Dictionary<string, object>? properties = default)
         {
-            var props = properties ?? new Dictionary<string, object>();
+            // Usar collection expression de C# 13 si properties es null
+            var props = properties ?? [];
             if (!string.IsNullOrEmpty(entityType))
                 props["EntityType"] = entityType;
             if (!string.IsNullOrEmpty(entityId))
@@ -201,7 +221,7 @@ namespace JonjubNet.Logging.Shared.Services
             LogCustom(logEntry);
         }
 
-        public void LogSecurityEvent(string eventType, string description, Dictionary<string, object>? properties = null, Exception? exception = null)
+        public void LogSecurityEvent(string eventType, string description, Dictionary<string, object>? properties = default, Exception? exception = null)
         {
             var logEntry = _createLogEntryUseCase.Execute(
                 description,
@@ -216,9 +236,10 @@ namespace JonjubNet.Logging.Shared.Services
             LogCustom(logEntry);
         }
 
-        public void LogAuditEvent(string eventType, string description, string entityType = "", string entityId = "", Dictionary<string, object>? properties = null)
+        public void LogAuditEvent(string eventType, string description, string entityType = "", string entityId = "", Dictionary<string, object>? properties = default)
         {
-            var props = properties ?? new Dictionary<string, object>();
+            // Usar collection expression de C# 13 si properties es null
+            var props = properties ?? [];
             if (!string.IsNullOrEmpty(entityType))
                 props["EntityType"] = entityType;
             if (!string.IsNullOrEmpty(entityId))
@@ -238,15 +259,19 @@ namespace JonjubNet.Logging.Shared.Services
 
         public ILogScope BeginScope(Dictionary<string, object> properties)
         {
+            ArgumentNullException.ThrowIfNull(properties);
             return new LogScope(properties);
         }
 
         public ILogScope BeginScope(string key, object value)
         {
-            return new LogScope(new Dictionary<string, object> { { key, value } });
+            // Usar collection expression de C# 13
+            return new LogScope(new Dictionary<string, object> { [key] = value });
         }
 
         private void Log(LogLevelValue logLevel, string message, string operation, string category, Dictionary<string, object>? properties, Dictionary<string, object>? context, Exception? exception = null)
+        {
+            ArgumentNullException.ThrowIfNull(message);
         {
             if (!_configurationManager.Current.Enabled)
                 return;

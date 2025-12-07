@@ -1,26 +1,41 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Target Framework: .NET 10 -->
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     
+    <!-- Plataformas soportadas -->
+    <SupportedOSPlatform>windows</SupportedOSPlatform>
+    <SupportedOSPlatform>linux</SupportedOSPlatform>
+    <SupportedOSPlatform>osx</SupportedOSPlatform>
+    
     <!-- NuGet Package Properties -->
     <PackageId>JonjubNet.Logging</PackageId>
-    <Version>2.0.1</Version>
+    <Version>3.0.0</Version>
     <Authors>Onuar Jimenez</Authors>
     <Company>JonjubNet</Company>
-    <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual.</Description>
-    <PackageTags>logging;structured-logging;serilog;correlation;enrichment;kafka;elasticsearch</PackageTags>
+    <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual. Optimizado para .NET 10 y C# 13.</Description>
+    <PackageTags>logging;structured-logging;serilog;correlation;enrichment;kafka;elasticsearch;net10;csharp13</PackageTags>
     <PackageProjectUrl>https://github.com/jonjubnet/JonjubNet.Logging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/jonjubnet/JonjubNet.Logging</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Title>JonjubNet.Logging</Title>
+    
+    <!-- Documentación XML -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn> <!-- Suprimir advertencias de documentación faltante temporalmente -->
+    
+    <!-- SourceLink para debugging -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +45,10 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="10.0.0" />
+    
+    <!-- SourceLink para debugging -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />

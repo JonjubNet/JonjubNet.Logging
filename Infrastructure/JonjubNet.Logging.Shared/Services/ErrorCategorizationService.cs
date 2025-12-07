@@ -1,26 +1,37 @@
+using System.Collections.Frozen;
 using JonjubNet.Logging.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace JonjubNet.Logging.Shared.Services
 {
     /// <summary>
-    /// Implementación del servicio de categorización de errores
+    /// Implementación mejorada del servicio de categorización de errores.
+    /// Optimizado para .NET 10: usa FrozenSet para lookups thread-safe sin locks.
     /// </summary>
     public class ErrorCategorizationService : IErrorCategorizationService
     {
-        private readonly HashSet<Type> _functionalErrorTypes = new();
-        private readonly HashSet<Type> _technicalErrorTypes = new();
+        private FrozenSet<Type> _functionalErrorTypes = FrozenSet<Type>.Empty;
+        private FrozenSet<Type> _technicalErrorTypes;
+        private readonly object _lock = new();
 
+        /// <summary>
+        /// Inicializa una nueva instancia de ErrorCategorizationService.
+        /// </summary>
         public ErrorCategorizationService()
         {
             // Registrar tipos de error técnicos comunes por defecto
-            RegisterTechnicalErrorType(typeof(SystemException));
-            RegisterTechnicalErrorType(typeof(OutOfMemoryException));
-            RegisterTechnicalErrorType(typeof(StackOverflowException));
-            RegisterTechnicalErrorType(typeof(TimeoutException));
-            RegisterTechnicalErrorType(typeof(InvalidOperationException));
-            RegisterTechnicalErrorType(typeof(NotSupportedException));
-            RegisterTechnicalErrorType(typeof(NotImplementedException));
+            var technicalTypes = new HashSet<Type>
+            {
+                typeof(SystemException),
+                typeof(OutOfMemoryException),
+                typeof(StackOverflowException),
+                typeof(TimeoutException),
+                typeof(InvalidOperationException),
+                typeof(NotSupportedException),
+                typeof(NotImplementedException)
+            };
+            
+            _technicalErrorTypes = technicalTypes.ToFrozenSet();
         }
 
         /// <summary>
@@ -123,33 +134,49 @@ namespace JonjubNet.Logging.Shared.Services
         }
 
         /// <summary>
-        /// Registra un tipo de excepción como error funcional (de negocio)
+        /// Registra un tipo de excepción como error funcional (de negocio).
         /// </summary>
+        /// <param name="exceptionType">Tipo de excepción a registrar.</param>
         public void RegisterFunctionalErrorType(Type exceptionType)
         {
-            if (exceptionType == null)
-                throw new ArgumentNullException(nameof(exceptionType));
+            ArgumentNullException.ThrowIfNull(exceptionType);
 
             if (!typeof(Exception).IsAssignableFrom(exceptionType))
                 throw new ArgumentException($"El tipo debe ser una excepción (hereda de Exception)", nameof(exceptionType));
 
-            _functionalErrorTypes.Add(exceptionType);
-            _technicalErrorTypes.Remove(exceptionType);
+            lock (_lock)
+            {
+                var functionalSet = _functionalErrorTypes.ToHashSet();
+                functionalSet.Add(exceptionType);
+                _functionalErrorTypes = functionalSet.ToFrozenSet();
+
+                var technicalSet = _technicalErrorTypes.ToHashSet();
+                technicalSet.Remove(exceptionType);
+                _technicalErrorTypes = technicalSet.ToFrozenSet();
+            }
         }
 
         /// <summary>
-        /// Registra un tipo de excepción como error técnico (del sistema)
+        /// Registra un tipo de excepción como error técnico (del sistema).
         /// </summary>
+        /// <param name="exceptionType">Tipo de excepción a registrar.</param>
         public void RegisterTechnicalErrorType(Type exceptionType)
         {
-            if (exceptionType == null)
-                throw new ArgumentNullException(nameof(exceptionType));
+            ArgumentNullException.ThrowIfNull(exceptionType);
 
             if (!typeof(Exception).IsAssignableFrom(exceptionType))
                 throw new ArgumentException($"El tipo debe ser una excepción (hereda de Exception)", nameof(exceptionType));
 
-            _technicalErrorTypes.Add(exceptionType);
-            _functionalErrorTypes.Remove(exceptionType);
+            lock (_lock)
+            {
+                var technicalSet = _technicalErrorTypes.ToHashSet();
+                technicalSet.Add(exceptionType);
+                _technicalErrorTypes = technicalSet.ToFrozenSet();
+
+                var functionalSet = _functionalErrorTypes.ToHashSet();
+                functionalSet.Remove(exceptionType);
+                _functionalErrorTypes = functionalSet.ToFrozenSet();
+            }
         }
     }
 }

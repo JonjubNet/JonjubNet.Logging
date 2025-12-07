@@ -7,6 +7,7 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.ObjectPool;
 using Microsoft.Extensions.Options;
 using System.Reflection;
 
@@ -54,36 +55,8 @@ namespace JonjubNet.Logging.Shared
             // services.AddValidatorsFromAssemblyContaining<LoggingConfigurationValidator>();
 
             // Registrar IHttpContextAccessor e IHttpContextProvider (condicional - solo si ASP.NET Core está disponible)
-            if (IsAspNetCoreAvailable())
-            {
-                try
-                {
-                    // Intentar registrar IHttpContextAccessor usando el método de extensión
-                    // Esto requiere que Microsoft.AspNetCore.Http.Abstractions esté disponible
-                    var httpContextAccessorExtensions = Type.GetType("Microsoft.Extensions.DependencyInjection.HttpServiceCollectionExtensions, Microsoft.AspNetCore.Http.Abstractions");
-                    if (httpContextAccessorExtensions != null)
-                    {
-                        var addMethod = httpContextAccessorExtensions.GetMethod("AddHttpContextAccessor", 
-                            BindingFlags.Public | BindingFlags.Static, 
-                            null, 
-                            new[] { typeof(IServiceCollection) }, 
-                            null);
-                        addMethod?.Invoke(null, new object[] { services });
-                    }
-                }
-                catch
-                {
-                    // Si falla, continuar sin registrar IHttpContextAccessor
-                }
-
-                // Registrar IHttpContextProvider con implementación ASP.NET Core
-                services.AddScoped<IHttpContextProvider, AspNetCoreHttpContextProvider>();
-            }
-            else
-            {
-                // Registrar IHttpContextProvider con implementación null (sin HTTP)
-                services.AddScoped<IHttpContextProvider, NullHttpContextProvider>();
-            }
+            // Usar conditional compilation en lugar de reflection para AOT-friendly
+            RegisterHttpContextServices(services);
 
             // Registrar ICurrentUserService
             services.AddScoped<ICurrentUserService, TUserService>();
@@ -97,14 +70,24 @@ namespace JonjubNet.Logging.Shared
             // Registrar ILogFilter
             services.AddScoped<ILogFilter, LogFilterService>();
 
-            // Registrar ILogSamplingService
-            services.AddSingleton<ILogSamplingService, LogSamplingService>();
+            // Registrar ILogSamplingService (singleton con TimeProvider)
+            services.AddSingleton<ILogSamplingService>(sp =>
+            {
+                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+                return new LogSamplingService(configManager, timeProvider);
+            });
 
             // Registrar IDataSanitizationService
             services.AddScoped<IDataSanitizationService, DataSanitizationService>();
 
             // Registrar servicios de resiliencia
-            services.AddSingleton<ICircuitBreakerManager, CircuitBreakerManager>();
+            services.AddSingleton<ICircuitBreakerManager>(sp =>
+            {
+                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                var logger = sp.GetService<ILogger<CircuitBreakerService>>();
+                return new CircuitBreakerManager(configManager, logger, sp);
+            });
             services.AddSingleton<IRetryPolicyManager, RetryPolicyManager>();
             services.AddSingleton<IDeadLetterQueue, DeadLetterQueueService>();
 
@@ -148,19 +131,21 @@ namespace JonjubNet.Logging.Shared
             services.AddSingleton<ILoggingHealthCheck, LoggingHealthCheck>();
 
             // Registrar ILogSink implementations
-            // Registrar ConsoleLogSink (siempre disponible)
-            services.AddScoped<ILogSink, ConsoleLogSink>();
+            // IMPORTANTE: Cambiar a Singleton para evitar problemas de ciclo de vida
+            // cuando se usa desde IStructuredLoggingService (Singleton)
+            services.AddSingleton<ILogSink, ConsoleLogSink>();
             
             // Registrar SerilogSink (condicional - solo si Serilog está disponible)
             if (IsSerilogAvailable())
             {
-                services.AddScoped<ILogSink, SerilogSink>();
+                services.AddSingleton<ILogSink, SerilogSink>();
             }
 
             // Registrar IStructuredLoggingService (inyectar LogQueue)
+            // Usar ILoggerFactory en lugar de ILogger<T> para Singletons
             services.AddSingleton<IStructuredLoggingService>(sp =>
             {
-                var logger = sp.GetRequiredService<ILogger<StructuredLoggingService>>();
+                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                 var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
                 var createUseCase = sp.GetRequiredService<CreateLogEntryUseCase>();
                 var enrichUseCase = sp.GetRequiredService<EnrichLogEntryUseCase>();
@@ -172,7 +157,7 @@ namespace JonjubNet.Logging.Shared
                 var priorityQueue = sp.GetService<IPriorityLogQueue>();
 
                 return new StructuredLoggingService(
-                    logger, configManager, createUseCase, enrichUseCase, sendUseCase,
+                    loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
                     sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
             });
 
@@ -200,35 +185,8 @@ namespace JonjubNet.Logging.Shared
             services.AddSingleton<ILoggingConfigurationManager, LoggingConfigurationManager>();
 
             // Registrar IHttpContextAccessor e IHttpContextProvider (condicional - solo si ASP.NET Core está disponible)
-            if (IsAspNetCoreAvailable())
-            {
-                try
-                {
-                    // Intentar registrar IHttpContextAccessor usando el método de extensión
-                    var httpContextAccessorExtensions = Type.GetType("Microsoft.Extensions.DependencyInjection.HttpServiceCollectionExtensions, Microsoft.AspNetCore.Http.Abstractions");
-                    if (httpContextAccessorExtensions != null)
-                    {
-                        var addMethod = httpContextAccessorExtensions.GetMethod("AddHttpContextAccessor", 
-                            BindingFlags.Public | BindingFlags.Static, 
-                            null, 
-                            new[] { typeof(IServiceCollection) }, 
-                            null);
-                        addMethod?.Invoke(null, new object[] { services });
-                    }
-                }
-                catch
-                {
-                    // Si falla, continuar sin registrar IHttpContextAccessor
-                }
-
-                // Registrar IHttpContextProvider con implementación ASP.NET Core
-                services.AddScoped<IHttpContextProvider, AspNetCoreHttpContextProvider>();
-            }
-            else
-            {
-                // Registrar IHttpContextProvider con implementación null (sin HTTP)
-                services.AddScoped<IHttpContextProvider, NullHttpContextProvider>();
-            }
+            // Usar conditional compilation en lugar de reflection para AOT-friendly
+            RegisterHttpContextServices(services);
 
             // Registrar ICurrentUserService
             services.AddScoped<ICurrentUserService, TUserService>();
@@ -242,14 +200,24 @@ namespace JonjubNet.Logging.Shared
             // Registrar ILogFilter
             services.AddScoped<ILogFilter, LogFilterService>();
 
-            // Registrar ILogSamplingService
-            services.AddSingleton<ILogSamplingService, LogSamplingService>();
+            // Registrar ILogSamplingService (singleton con TimeProvider)
+            services.AddSingleton<ILogSamplingService>(sp =>
+            {
+                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+                return new LogSamplingService(configManager, timeProvider);
+            });
 
             // Registrar IDataSanitizationService
             services.AddScoped<IDataSanitizationService, DataSanitizationService>();
 
             // Registrar servicios de resiliencia
-            services.AddSingleton<ICircuitBreakerManager, CircuitBreakerManager>();
+            services.AddSingleton<ICircuitBreakerManager>(sp =>
+            {
+                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                var logger = sp.GetService<ILogger<CircuitBreakerService>>();
+                return new CircuitBreakerManager(configManager, logger, sp);
+            });
             services.AddSingleton<IRetryPolicyManager, RetryPolicyManager>();
             services.AddSingleton<IDeadLetterQueue, DeadLetterQueueService>();
 
@@ -271,19 +239,21 @@ namespace JonjubNet.Logging.Shared
             services.AddSingleton<ILoggingHealthCheck, LoggingHealthCheck>();
 
             // Registrar ILogSink implementations
-            // Registrar ConsoleLogSink (siempre disponible)
-            services.AddScoped<ILogSink, ConsoleLogSink>();
+            // IMPORTANTE: Cambiar a Singleton para evitar problemas de ciclo de vida
+            // cuando se usa desde IStructuredLoggingService (Singleton)
+            services.AddSingleton<ILogSink, ConsoleLogSink>();
             
             // Registrar SerilogSink (condicional - solo si Serilog está disponible)
             if (IsSerilogAvailable())
             {
-                services.AddScoped<ILogSink, SerilogSink>();
+                services.AddSingleton<ILogSink, SerilogSink>();
             }
 
             // Registrar IStructuredLoggingService (inyectar LogQueue)
+            // Usar ILoggerFactory en lugar de ILogger<T> para Singletons
             services.AddSingleton<IStructuredLoggingService>(sp =>
             {
-                var logger = sp.GetRequiredService<ILogger<StructuredLoggingService>>();
+                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                 var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
                 var createUseCase = sp.GetRequiredService<CreateLogEntryUseCase>();
                 var enrichUseCase = sp.GetRequiredService<EnrichLogEntryUseCase>();
@@ -295,7 +265,7 @@ namespace JonjubNet.Logging.Shared
                 var priorityQueue = sp.GetService<IPriorityLogQueue>();
 
                 return new StructuredLoggingService(
-                    logger, configManager, createUseCase, enrichUseCase, sendUseCase,
+                    loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
                     sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
             });
 
@@ -303,26 +273,19 @@ namespace JonjubNet.Logging.Shared
         }
 
         /// <summary>
-        /// Verifica si ASP.NET Core está disponible en el entorno actual
+        /// Registra los servicios de HTTP context de forma condicional usando conditional compilation.
+        /// Elimina la necesidad de reflection, haciéndolo AOT-friendly.
         /// </summary>
-        private static bool IsAspNetCoreAvailable()
+        private static void RegisterHttpContextServices(IServiceCollection services)
         {
-            try
-            {
-                // Intentar cargar el tipo IHttpContextAccessor
-                var httpContextAccessorType = Type.GetType("Microsoft.AspNetCore.Http.IHttpContextAccessor, Microsoft.AspNetCore.Http.Abstractions");
-                if (httpContextAccessorType == null)
-                {
-                    // Intentar con el assembly completo
-                    var assembly = Assembly.Load("Microsoft.AspNetCore.Http.Abstractions");
-                    httpContextAccessorType = assembly.GetType("Microsoft.AspNetCore.Http.IHttpContextAccessor");
-                }
-                return httpContextAccessorType != null;
-            }
-            catch
-            {
-                return false;
-            }
+#if ASPNETCORE
+            // ASP.NET Core está disponible - usar implementación real
+            services.AddHttpContextAccessor();
+            services.AddScoped<IHttpContextProvider, AspNetCoreHttpContextProvider>();
+#else
+            // ASP.NET Core no está disponible - usar implementación null
+            services.AddScoped<IHttpContextProvider, NullHttpContextProvider>();
+#endif
         }
 
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using JonjubNet.Logging.Domain.Common;
 
 namespace JonjubNet.Logging.Domain.Entities
@@ -164,89 +165,40 @@ namespace JonjubNet.Logging.Domain.Entities
         public string? ResponseBody { get; set; }
 
         /// <summary>
-        /// Convierte la entrada de log a JSON
-        /// Maneja errores de serialización sin afectar la aplicación
+        /// Convierte la entrada de log a JSON usando source generation para mejor rendimiento y AOT compatibility.
+        /// Maneja errores de serialización sin afectar la aplicación.
         /// </summary>
         /// <returns>JSON string válido y bien formateado</returns>
         public string ToJson()
         {
             try
             {
-                // Usar opciones cacheadas para evitar allocations
-                var options = JsonSerializerOptionsCache.Default;
-
-                // Crear un objeto anónimo con orden lógico
-                // System.Text.Json garantiza JSON válido sin comas finales
-                // Los campos null se incluyen explícitamente para mantener estructura consistente
-                var logObject = new
-                {
-                    // Identificación y contexto básico
-                    ServiceName,
-                    Operation,
-                    LogLevel,
-                    Message,
-                    Category,
-                    EventType,
-                    
-                    // Información de usuario
-                    UserId,
-                    UserName,
-                    
-                    // Información del sistema
-                    Environment,
-                    Version,
-                    MachineName,
-                    ProcessId,
-                    ThreadId,
-                    
-                    // Datos específicos del evento (siempre incluidos, incluso si están vacíos)
-                    Properties = Properties.Count > 0 ? Properties : new Dictionary<string, object>(),
-                    Context = Context.Count > 0 ? Context : new Dictionary<string, object>(),
-                    
-                    // Información de excepción
-                    Exception = Exception?.ToString(),
-                    StackTrace,
-                    
-                    // Timestamp
-                    Timestamp,
-                    
-                    // Información HTTP
-                    RequestPath,
-                    RequestMethod,
-                    StatusCode,
-                    ClientIp,
-                    UserAgent,
-                    
-                    // IDs de correlación
-                    CorrelationId,
-                    RequestId,
-                    SessionId,
-                    
-                    // Información HTTP adicional
-                    QueryString,
-                    RequestHeaders,
-                    ResponseHeaders,
-                    RequestBody,
-                    ResponseBody
-                };
-
-                return JsonSerializer.Serialize(logObject, options);
+                // Usar source generation para mejor rendimiento y AOT compatibility
+                return JsonSerializer.Serialize(this, LogEntryJsonContext.Default.StructuredLogEntry);
             }
             catch (Exception ex)
             {
                 // Error crítico interno del componente al serializar - retornar JSON mínimo
                 // Esto nunca debe ocurrir, pero por seguridad retornamos un JSON válido
-                return JsonSerializer.Serialize(new
+                try
                 {
-                    ServiceName = ServiceName ?? "Unknown",
-                    Operation = Operation ?? "Unknown",
-                    LogLevel = LogLevel ?? "Error",
-                    Message = Message ?? $"Error interno del componente al serializar log: {ex.Message}",
-                    Category = Category ?? "System",
-                    EventType = EventType ?? "Custom",
-                    Timestamp = Timestamp,
-                    ComponentError = ex.Message
-                }, JsonSerializerOptionsCache.Default);
+                    return JsonSerializer.Serialize(new
+                    {
+                        ServiceName = ServiceName ?? "Unknown",
+                        Operation = Operation ?? "Unknown",
+                        LogLevel = LogLevel ?? "Error",
+                        Message = Message ?? $"Error interno del componente al serializar log: {ex.Message}",
+                        Category = Category ?? "System",
+                        EventType = EventType ?? "Custom",
+                        Timestamp = Timestamp,
+                        ComponentError = ex.Message
+                    }, LogEntryJsonContext.Default.StructuredLogEntry);
+                }
+                catch
+                {
+                    // Fallback absoluto si incluso el error falla
+                    return $"{{\"Error\":\"Serialization failed: {ex.Message}\",\"Timestamp\":\"{Timestamp:O}\"}}";
+                }
             }
         }
     }

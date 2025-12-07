@@ -129,12 +129,11 @@ namespace JonjubNet.Logging.Shared.Services
         }
 
         /// <summary>
-        /// Política con exponential backoff y jitter
+        /// Política con exponential backoff y jitter.
+        /// Optimizado para .NET 10: usa Random.Shared en lugar de ThreadLocal.
         /// </summary>
         private class JitteredExponentialBackoffRetryPolicy : RetryPolicyService
         {
-            private static readonly ThreadLocal<Random> _random = new(() => new Random(Environment.TickCount + Thread.CurrentThread.ManagedThreadId));
-
             public JitteredExponentialBackoffRetryPolicy(RetryPolicyConfiguration config, ILogger<RetryPolicyService>? logger)
                 : base(config, logger)
             {
@@ -143,8 +142,8 @@ namespace JonjubNet.Logging.Shared.Services
             protected override TimeSpan CalculateDelay(int attemptNumber)
             {
                 var baseDelay = _config.InitialDelay.TotalMilliseconds * Math.Pow(_config.BackoffMultiplier, attemptNumber - 1);
-                // Jitter: ±25% de variación
-                var jitter = baseDelay * 0.25 * (2 * _random.Value!.NextDouble() - 1);
+                // Jitter: ±25% de variación usando Random.Shared (thread-safe en .NET 6+)
+                var jitter = baseDelay * 0.25 * (2 * Random.Shared.NextDouble() - 1);
                 var delayMs = baseDelay + jitter;
                 var delay = TimeSpan.FromMilliseconds(delayMs);
                 return delay > _config.MaxDelay ? _config.MaxDelay : delay;
@@ -182,6 +181,14 @@ namespace JonjubNet.Logging.Shared.Services
 
         public int MaxRetries => _config.MaxRetries;
 
+        /// <summary>
+        /// Ejecuta una operación con la política de retry configurada.
+        /// </summary>
+        /// <typeparam name="T">Tipo de retorno de la operación.</typeparam>
+        /// <param name="operation">Operación a ejecutar.</param>
+        /// <param name="cancellationToken">Token de cancelación.</param>
+        /// <returns>Resultado de la operación.</returns>
+        /// <exception cref="RetryExhaustedException">Se lanza cuando se agotan los reintentos.</exception>
         public async Task<T> ExecuteAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default)
         {
             int attempt = 0;
@@ -191,7 +198,7 @@ namespace JonjubNet.Logging.Shared.Services
             {
                 try
                 {
-                    return await operation();
+                    return await operation().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -215,7 +222,7 @@ namespace JonjubNet.Logging.Shared.Services
                     _logger?.LogDebug("Reintentando operación después de {Delay}ms (intento {Attempt}/{MaxRetries})", 
                         delay.TotalMilliseconds, attempt, _config.MaxRetries);
 
-                    await Task.Delay(delay, cancellationToken);
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
                 }
             }
 

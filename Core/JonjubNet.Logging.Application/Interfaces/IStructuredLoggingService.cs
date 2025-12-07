@@ -15,7 +15,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="category">Categoría del log</param>
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="context">Contexto adicional</param>
-        void LogInformation(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null);
+        void LogInformation(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default);
 
         /// <summary>
         /// Registra un log de advertencia
@@ -26,7 +26,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="context">Contexto adicional</param>
         /// <param name="exception">Excepción asociada</param>
-        void LogWarning(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null, Exception? exception = null);
+        void LogWarning(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default, Exception? exception = null);
 
         /// <summary>
         /// Registra un log de error
@@ -37,7 +37,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="context">Contexto adicional</param>
         /// <param name="exception">Excepción asociada</param>
-        void LogError(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null, Exception? exception = null);
+        void LogError(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default, Exception? exception = null);
 
         /// <summary>
         /// Registra un log crítico
@@ -48,7 +48,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="context">Contexto adicional</param>
         /// <param name="exception">Excepción asociada</param>
-        void LogCritical(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null, Exception? exception = null);
+        void LogCritical(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default, Exception? exception = null);
 
         /// <summary>
         /// Registra un log de debug
@@ -58,7 +58,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="category">Categoría del log</param>
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="context">Contexto adicional</param>
-        void LogDebug(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null);
+        void LogDebug(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default);
 
         /// <summary>
         /// Registra un log de trace
@@ -68,7 +68,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="category">Categoría del log</param>
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="context">Contexto adicional</param>
-        void LogTrace(string message, string operation = "", string category = "", Dictionary<string, object>? properties = null, Dictionary<string, object>? context = null);
+        void LogTrace(string message, string operation = "", string category = "", Dictionary<string, object>? properties = default, Dictionary<string, object>? context = default);
 
         /// <summary>
         /// Registra una entrada de log personalizada
@@ -97,7 +97,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="operation">Nombre de la operación</param>
         /// <param name="category">Categoría del log</param>
         /// <param name="properties">Propiedades adicionales</param>
-        void LogOperationStart(string operation, string category = "", Dictionary<string, object>? properties = null);
+        void LogOperationStart(string operation, string category = "", Dictionary<string, object>? properties = default);
 
         /// <summary>
         /// Registra el final de una operación
@@ -108,7 +108,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="success">Indica si la operación fue exitosa</param>
         /// <param name="exception">Excepción si la operación falló</param>
-        void LogOperationEnd(string operation, string category = "", long executionTimeMs = 0, Dictionary<string, object>? properties = null, bool success = true, Exception? exception = null);
+        void LogOperationEnd(string operation, string category = "", long executionTimeMs = 0, Dictionary<string, object>? properties = default, bool success = true, Exception? exception = null);
 
         /// <summary>
         /// Registra una acción del usuario
@@ -117,7 +117,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="entityType">Tipo de entidad afectada</param>
         /// <param name="entityId">ID de la entidad afectada</param>
         /// <param name="properties">Propiedades adicionales</param>
-        void LogUserAction(string action, string entityType = "", string entityId = "", Dictionary<string, object>? properties = null);
+        void LogUserAction(string action, string entityType = "", string entityId = "", Dictionary<string, object>? properties = default);
 
         /// <summary>
         /// Registra un evento de seguridad
@@ -126,7 +126,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="description">Descripción del evento</param>
         /// <param name="properties">Propiedades adicionales</param>
         /// <param name="exception">Excepción asociada</param>
-        void LogSecurityEvent(string eventType, string description, Dictionary<string, object>? properties = null, Exception? exception = null);
+        void LogSecurityEvent(string eventType, string description, Dictionary<string, object>? properties = default, Exception? exception = null);
 
         /// <summary>
         /// Registra un evento de auditoría
@@ -136,7 +136,7 @@ namespace JonjubNet.Logging.Application.Interfaces
         /// <param name="entityType">Tipo de entidad afectada</param>
         /// <param name="entityId">ID de la entidad afectada</param>
         /// <param name="properties">Propiedades adicionales</param>
-        void LogAuditEvent(string eventType, string description, string entityType = "", string entityId = "", Dictionary<string, object>? properties = null);
+        void LogAuditEvent(string eventType, string description, string entityType = "", string entityId = "", Dictionary<string, object>? properties = default);
     }
 }
 

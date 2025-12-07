@@ -1,11 +1,11 @@
 # JonjubNet.Logging
 
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-blue)
-![NuGet Version](https://img.shields.io/badge/nuget-v1.0.42-blue)
+![NuGet Version](https://img.shields.io/badge/nuget-v3.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 
-Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual.
+Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual. Optimizado para .NET 10 y C# 13 con mejoras significativas de performance.
 
 ## 📋 Tabla de Contenidos
 

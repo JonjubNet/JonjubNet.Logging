@@ -1,5 +1,6 @@
 using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
@@ -12,14 +13,17 @@ namespace JonjubNet.Logging.Shared.Services
     {
         private readonly ILoggingConfigurationManager _configurationManager;
         private readonly ILogger<CircuitBreakerService>? _logger;
+        private readonly IServiceProvider? _serviceProvider;
         private readonly ConcurrentDictionary<string, ICircuitBreaker> _breakers = new();
 
         public CircuitBreakerManager(
             ILoggingConfigurationManager configurationManager,
-            ILogger<CircuitBreakerService>? logger = null)
+            ILogger<CircuitBreakerService>? logger = null,
+            IServiceProvider? serviceProvider = null)
         {
             _configurationManager = configurationManager;
             _logger = logger;
+            _serviceProvider = serviceProvider;
         }
 
         public ICircuitBreaker GetBreaker(string sinkName)
@@ -43,7 +47,8 @@ namespace JonjubNet.Logging.Shared.Services
                     HalfOpenTestCount = sinkConfig?.HalfOpenTestCount ?? config.Default.HalfOpenTestCount
                 };
 
-                return new CircuitBreakerService(name, breakerConfig, _logger);
+                var timeProvider = _serviceProvider?.GetService<TimeProvider>() ?? TimeProvider.System;
+                return new CircuitBreakerService(name, breakerConfig, _logger, timeProvider);
             });
         }
 

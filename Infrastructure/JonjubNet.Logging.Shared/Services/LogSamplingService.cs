@@ -7,25 +7,33 @@ using System.Collections.Concurrent;
 namespace JonjubNet.Logging.Shared.Services
 {
     /// <summary>
-    /// Servicio para determinar si un log debe ser muestreado (sampling) o limitado por rate
-    /// Optimizado para performance: usa ThreadLocal Random y limpieza periódica de contadores
+    /// Servicio mejorado para determinar si un log debe ser muestreado (sampling) o limitado por rate.
+    /// Optimizado para .NET 10: usa Random.Shared en lugar de ThreadLocal para mejor rendimiento.
     /// </summary>
     public class LogSamplingService : ILogSamplingService, IDisposable
     {
         private readonly ILoggingConfigurationManager _configurationManager;
-        // ThreadLocal Random para evitar contention en alta concurrencia
-        private static readonly ThreadLocal<Random> _random = new(() => new Random(Environment.TickCount + Thread.CurrentThread.ManagedThreadId));
+        private readonly TimeProvider _timeProvider;
         
         // Rate limiting: contador de logs por nivel por minuto
         private readonly ConcurrentDictionary<string, RateLimitCounter> _rateLimitCounters = new();
         
         // Limpiar contadores antiguos periódicamente (cada 5 minutos)
-        private DateTime _lastCleanup = DateTime.UtcNow;
+        private DateTimeOffset _lastCleanup;
         private readonly TimeSpan _cleanupInterval = TimeSpan.FromMinutes(5);
 
-        public LogSamplingService(ILoggingConfigurationManager configurationManager)
+        /// <summary>
+        /// Inicializa una nueva instancia de LogSamplingService.
+        /// </summary>
+        /// <param name="configurationManager">Gestor de configuración de logging.</param>
+        /// <param name="timeProvider">TimeProvider para obtener la hora actual (permite testing y time mocking).</param>
+        public LogSamplingService(
+            ILoggingConfigurationManager configurationManager,
+            TimeProvider? timeProvider = null)
         {
             _configurationManager = configurationManager;
+            _timeProvider = timeProvider ?? TimeProvider.System;
+            _lastCleanup = _timeProvider.GetUtcNow();
             
             // Suscribirse a cambios de configuración para limpiar contadores si es necesario
             _configurationManager.ConfigurationChanged += OnConfigurationChanged;
@@ -73,7 +81,7 @@ namespace JonjubNet.Logging.Shared.Services
 
         private void CleanupOldCountersIfNeeded()
         {
-            var now = DateTime.UtcNow;
+            var now = _timeProvider.GetUtcNow();
             if (now - _lastCleanup < _cleanupInterval)
                 return;
 
@@ -100,8 +108,8 @@ namespace JonjubNet.Logging.Shared.Services
             if (config.MaxLogsPerMinute == null || !config.MaxLogsPerMinute.TryGetValue(logLevel, out var maxPerMinute))
                 return true; // Sin límite configurado
 
-            var counter = _rateLimitCounters.GetOrAdd(logLevel, _ => new RateLimitCounter());
-            var now = DateTime.UtcNow;
+            var counter = _rateLimitCounters.GetOrAdd(logLevel, _ => new RateLimitCounter { LastReset = _timeProvider.GetUtcNow() });
+            var now = _timeProvider.GetUtcNow();
 
             // Limpiar contador si pasó un minuto
             if (now - counter.LastReset > TimeSpan.FromMinutes(1))
@@ -122,8 +130,8 @@ namespace JonjubNet.Logging.Shared.Services
             if (config.SamplingRates == null || !config.SamplingRates.TryGetValue(logLevel, out var samplingRate))
                 return true; // Sin sampling configurado para este nivel
 
-            // Sampling probabilístico: usar ThreadLocal Random para evitar contention
-            var randomValue = _random.Value!.NextDouble();
+            // Sampling probabilístico: usar Random.Shared (thread-safe en .NET 6+)
+            var randomValue = Random.Shared.NextDouble();
             return randomValue <= samplingRate;
         }
 
@@ -135,7 +143,7 @@ namespace JonjubNet.Logging.Shared.Services
         private class RateLimitCounter
         {
             public int Count { get; set; }
-            public DateTime LastReset { get; set; } = DateTime.UtcNow;
+            public DateTimeOffset LastReset { get; set; }
         }
     }
 }

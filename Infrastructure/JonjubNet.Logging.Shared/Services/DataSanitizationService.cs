@@ -1,6 +1,7 @@
 using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Domain.Entities;
+using JonjubNet.Logging.Shared.Common;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -120,44 +121,59 @@ namespace JonjubNet.Logging.Shared.Services
                 return dictionary ?? new Dictionary<string, object>();
 
             var configuration = _configurationManager.Current.DataSanitization;
-            var sanitized = new Dictionary<string, object>();
-
-            foreach (var kvp in dictionary)
+            
+            // Usar DictionaryPool para diccionario temporal
+            var tempSanitized = DictionaryPool.Rent();
+            try
             {
-                var key = kvp.Key;
-                var value = kvp.Value;
+                // Pre-allocar capacidad para evitar redimensionamientos
+                if (tempSanitized.Capacity < dictionary.Count)
+                {
+                    tempSanitized.EnsureCapacity(dictionary.Count);
+                }
 
-                // Verificar si el nombre de la propiedad es sensible
-                if (IsSensitivePropertyName(key, configuration))
+                foreach (var kvp in dictionary)
                 {
-                    sanitized[key] = MaskValue(value?.ToString(), configuration);
-                }
-                else if (value is string stringValue)
-                {
-                    // Verificar si el valor contiene datos sensibles por patrón
-                    sanitized[key] = SanitizeString(stringValue);
-                }
-                else if (value is Dictionary<string, object> nestedDict)
-                {
-                    // Recursivamente sanitizar diccionarios anidados
-                    sanitized[key] = SanitizeDictionary(nestedDict);
-                }
-                else
-                {
-                    // Para otros tipos, convertir a string y sanitizar
-                    var stringified = value?.ToString();
-                    if (!string.IsNullOrEmpty(stringified))
+                    var key = kvp.Key;
+                    var value = kvp.Value;
+
+                    // Verificar si el nombre de la propiedad es sensible
+                    if (IsSensitivePropertyName(key, configuration))
                     {
-                        sanitized[key] = SanitizeString(stringified);
+                        tempSanitized[key] = MaskValue(value?.ToString(), configuration);
                     }
-                    else if (value != null)
+                    else if (value is string stringValue)
                     {
-                        sanitized[key] = value;
+                        // Verificar si el valor contiene datos sensibles por patrón
+                        tempSanitized[key] = SanitizeString(stringValue);
+                    }
+                    else if (value is Dictionary<string, object> nestedDict)
+                    {
+                        // Recursivamente sanitizar diccionarios anidados
+                        tempSanitized[key] = SanitizeDictionary(nestedDict);
+                    }
+                    else
+                    {
+                        // Para otros tipos, convertir a string y sanitizar
+                        var stringified = value?.ToString();
+                        if (!string.IsNullOrEmpty(stringified))
+                        {
+                            tempSanitized[key] = SanitizeString(stringified);
+                        }
+                        else if (value != null)
+                        {
+                            tempSanitized[key] = value;
+                        }
                     }
                 }
+
+                // Crear nuevo diccionario para retornar (no devolver el del pool)
+                return new Dictionary<string, object>(tempSanitized);
             }
-
-            return sanitized;
+            finally
+            {
+                DictionaryPool.Return(tempSanitized);
+            }
         }
 
         private string SanitizeString(string value)

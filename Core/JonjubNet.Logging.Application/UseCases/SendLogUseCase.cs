@@ -95,15 +95,19 @@ namespace JonjubNet.Logging.Application.UseCases
                 }
 
                 // Enviar a todos los sinks habilitados en paralelo (usar entrada sanitizada)
-                var enabledSinks = _sinks.Where(s => s.IsEnabled).ToList();
-                if (enabledSinks.Count > 0)
+                // OPTIMIZACIÓN: Iterar directamente sin ToList() para evitar allocation innecesaria
+                var sinkTasks = new List<Task>();
+                foreach (var sink in _sinks)
+                {
+                    if (sink.IsEnabled)
+                    {
+                        sinkTasks.Add(SendToSinkWithResilienceAsync(sink, sanitizedEntry));
+                    }
+                }
+
+                if (sinkTasks.Count > 0)
                 {
                     // Procesar sinks en paralelo para mejor throughput
-                    var sinkTasks = enabledSinks.Select(async sink =>
-                    {
-                        await SendToSinkWithResilienceAsync(sink, sanitizedEntry);
-                    });
-
                     await Task.WhenAll(sinkTasks);
                 }
             }

@@ -1,4 +1,5 @@
 using JonjubNet.Logging.Application.Interfaces;
+using JonjubNet.Logging.Shared.Common;
 using System.Collections.Concurrent;
 using System.Threading;
 
@@ -35,22 +36,37 @@ namespace JonjubNet.Logging.Shared.Services
 
             // Estimar capacidad inicial basado en número de scopes
             var estimatedCapacity = stack.Count * 4; // Estimación conservadora
-            var properties = new Dictionary<string, object>(estimatedCapacity);
-
-            // Agregar propiedades de todos los scopes activos (del más reciente al más antiguo)
-            foreach (var scopeProperties in stack)
+            
+            // Usar DictionaryPool para diccionario temporal
+            var tempProperties = DictionaryPool.Rent();
+            try
             {
-                foreach (var kvp in scopeProperties)
+                // Pre-allocar capacidad para evitar redimensionamientos
+                if (tempProperties.Capacity < estimatedCapacity)
                 {
-                    // El scope más reciente tiene prioridad
-                    if (!properties.ContainsKey(kvp.Key))
+                    tempProperties.EnsureCapacity(estimatedCapacity);
+                }
+
+                // Agregar propiedades de todos los scopes activos (del más reciente al más antiguo)
+                foreach (var scopeProperties in stack)
+                {
+                    foreach (var kvp in scopeProperties)
                     {
-                        properties[kvp.Key] = kvp.Value;
+                        // El scope más reciente tiene prioridad
+                        if (!tempProperties.ContainsKey(kvp.Key))
+                        {
+                            tempProperties[kvp.Key] = kvp.Value;
+                        }
                     }
                 }
-            }
 
-            return properties;
+                // Crear nuevo diccionario para retornar (no devolver el del pool)
+                return new Dictionary<string, object>(tempProperties);
+            }
+            finally
+            {
+                DictionaryPool.Return(tempProperties);
+            }
         }
 
         /// <summary>
