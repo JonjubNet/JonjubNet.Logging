@@ -72,10 +72,10 @@ namespace JonjubNet.Logging.Shared.Services
             // Sanitizar contexto
             sanitized.Context = SanitizeDictionary(sanitized.Context);
 
-            // Sanitizar headers
+            // Sanitizar headers - pre-allocar capacidad para evitar redimensionamientos
             if (sanitized.RequestHeaders != null)
             {
-                var sanitizedHeaders = new Dictionary<string, string>();
+                var sanitizedHeaders = new Dictionary<string, string>(sanitized.RequestHeaders.Count);
                 foreach (var header in sanitized.RequestHeaders)
                 {
                     var sanitizedValue = SanitizeString(header.Value);
@@ -86,7 +86,7 @@ namespace JonjubNet.Logging.Shared.Services
 
             if (sanitized.ResponseHeaders != null)
             {
-                var sanitizedHeaders = new Dictionary<string, string>();
+                var sanitizedHeaders = new Dictionary<string, string>(sanitized.ResponseHeaders.Count);
                 foreach (var header in sanitized.ResponseHeaders)
                 {
                     var sanitizedValue = SanitizeString(header.Value);
@@ -183,18 +183,16 @@ namespace JonjubNet.Logging.Shared.Services
 
             // Verificar patrones regex compilados (optimizado)
             // Usar lock solo para lectura (patrones no cambian frecuentemente)
-            List<Regex> patterns;
+            // OPTIMIZACIÓN: Iterar directamente sin ToList() para evitar allocation
             lock (_patternsLock)
             {
-                patterns = _compiledPatterns.Values.ToList();
-            }
-
-            foreach (var pattern in patterns)
-            {
-                if (pattern.IsMatch(value))
+                foreach (var pattern in _compiledPatterns.Values)
                 {
-                    var configuration = _configurationManager.Current.DataSanitization;
-                    return MaskValue(value, configuration);
+                    if (pattern.IsMatch(value))
+                    {
+                        var configuration = _configurationManager.Current.DataSanitization;
+                        return MaskValue(value, configuration);
+                    }
                 }
             }
 

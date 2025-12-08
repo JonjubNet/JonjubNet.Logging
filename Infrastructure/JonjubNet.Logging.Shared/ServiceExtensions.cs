@@ -5,6 +5,7 @@ using JonjubNet.Logging.Application.UseCases;
 using JonjubNet.Logging.Shared.Services;
 using JonjubNet.Logging.Shared.Services.Sinks;
 using FluentValidation;
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -293,6 +294,10 @@ namespace JonjubNet.Logging.Shared
                     loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
                     sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
             });
+
+            // ✅ Registrar Pipeline Behaviors de logging automático para MediatR
+            // Esto registra automáticamente todas las peticiones y respuestas de MediatR
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(Application.Behaviours.LoggingBehaviour<,>));
 
             return services;
         }

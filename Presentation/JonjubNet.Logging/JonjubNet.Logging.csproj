@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+ï»¿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- Target Framework: .NET 10 -->
@@ -14,10 +14,10 @@
     
     <!-- NuGet Package Properties -->
     <PackageId>JonjubNet.Logging</PackageId>
-    <Version>3.0.9</Version>
+    <Version>3.0.10</Version>
     <Authors>Onuar Jimenez</Authors>
     <Company>JonjubNet</Company>
-    <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual. Optimizado para .NET 10 y C# 13.</Description>
+    <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para mÃºltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlaciÃ³n y enriquecimiento, y logging automÃ¡tico para operaciones MediatR sin cÃ³digo manual. Optimizado para .NET 10 y C# 13.</Description>
     <PackageTags>logging;structured-logging;serilog;correlation;enrichment;kafka;elasticsearch;net10;csharp13</PackageTags>
     <PackageProjectUrl>https://github.com/jonjubnet/JonjubNet.Logging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/jonjubnet/JonjubNet.Logging</RepositoryUrl>
@@ -29,16 +29,18 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Title>JonjubNet.Logging</Title>
     
-    <!-- Documentación XML -->
+    <!-- DocumentaciÃ³n XML -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);1591</NoWarn> <!-- Suprimir advertencias de documentación faltante temporalmente -->
+    <NoWarn>$(NoWarn);1591</NoWarn> <!-- Suprimir advertencias de documentaciÃ³n faltante temporalmente -->
     
-    <!-- SourceLink para debugging -->
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- SourceLink para debugging - DESHABILITADO temporalmente por bloqueo de archivos -->
+    <PublishRepositoryUrl>false</PublishRepositoryUrl>
+    <EmbedUntrackedSources>false</EmbedUntrackedSources>
+    <EnableSourceLink>false</EnableSourceLink>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.4.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
@@ -47,8 +49,8 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="10.0.0" />
     
-    <!-- SourceLink para debugging -->
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+    <!-- SourceLink para debugging - COMENTADO temporalmente por bloqueo de archivos -->
+    <!-- <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/> -->
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
@@ -78,7 +80,7 @@
     </ProjectReference>
   </ItemGroup>
   
-  <!-- Target para incluir explícitamente los ensamblados de proyectos internos en lib/ del paquete NuGet -->
+  <!-- Target para incluir explÃ­citamente los ensamblados de proyectos internos en lib/ del paquete NuGet -->
   <Target Name="IncludeReferencedAssembliesInPackage" AfterTargets="Build" BeforeTargets="GenerateNuspec">
     <PropertyGroup>
       <_ApplicationDllPath>$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Application\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Application.dll</_ApplicationDllPath>
@@ -111,7 +113,7 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
-  <!-- Excluir archivos de ejemplo de la compilación (solo son ejemplos de uso) -->
+  <!-- Excluir archivos de ejemplo de la compilaciÃ³n (solo son ejemplos de uso) -->
   <ItemGroup>
     <Compile Remove="Examples\**" />
     <EmbeddedResource Remove="Examples\**" />

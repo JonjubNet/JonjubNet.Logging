@@ -265,8 +265,9 @@ namespace JonjubNet.Logging.Shared.Services
 
         public ILogScope BeginScope(string key, object value)
         {
-            // Usar collection expression de C# 13
-            return new LogScope(new Dictionary<string, object> { [key] = value });
+            // Pre-allocar capacidad para evitar redimensionamientos
+            var properties = new Dictionary<string, object>(1) { [key] = value };
+            return new LogScope(properties);
         }
 
         private void Log(LogLevelValue logLevel, string message, string operation, string category, Dictionary<string, object>? properties, Dictionary<string, object>? context, Exception? exception = null)
