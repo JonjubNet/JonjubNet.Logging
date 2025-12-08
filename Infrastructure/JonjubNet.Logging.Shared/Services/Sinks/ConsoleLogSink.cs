@@ -1,5 +1,6 @@
 using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
+using JonjubNet.Logging.Domain.Common;
 using JonjubNet.Logging.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -29,7 +30,19 @@ namespace JonjubNet.Logging.Shared.Services.Sinks
         {
             try
             {
-                var json = logEntry.ToJson();
+                // OPTIMIZACIÓN: Usar JSON pre-serializado si está disponible (evita serialización duplicada)
+                // Si no está disponible, serializar localmente (compatibilidad hacia atrás)
+                string json;
+                if (logEntry is IPreSerializedLogEntry preSerialized && preSerialized.PreSerializedJson != null)
+                {
+                    json = preSerialized.PreSerializedJson;
+                }
+                else
+                {
+                    // Fallback: serializar localmente si no hay JSON pre-serializado
+                    json = logEntry.ToJson();
+                }
+                
                 Console.WriteLine(json);
                 return Task.CompletedTask;
             }

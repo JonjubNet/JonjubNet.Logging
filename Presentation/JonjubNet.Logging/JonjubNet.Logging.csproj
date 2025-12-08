@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- Target Framework: .NET 10 -->
@@ -14,10 +14,10 @@
     
     <!-- NuGet Package Properties -->
     <PackageId>JonjubNet.Logging</PackageId>
-    <Version>3.0.10</Version>
+    <Version>3.0.13</Version>
     <Authors>Onuar Jimenez</Authors>
     <Company>JonjubNet</Company>
-    <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para múltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlación y enriquecimiento, y logging automático para operaciones MediatR sin código manual. Optimizado para .NET 10 y C# 13.</Description>
+    <Description>Biblioteca de logging estructurado para aplicaciones .NET con soporte para m�ltiples sinks (Console, File, HTTP, Elasticsearch, Kafka), funcionalidades avanzadas de correlaci�n y enriquecimiento, y logging autom�tico para operaciones MediatR sin c�digo manual. Optimizado para .NET 10 y C# 13.</Description>
     <PackageTags>logging;structured-logging;serilog;correlation;enrichment;kafka;elasticsearch;net10;csharp13</PackageTags>
     <PackageProjectUrl>https://github.com/jonjubnet/JonjubNet.Logging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/jonjubnet/JonjubNet.Logging</RepositoryUrl>
@@ -29,9 +29,9 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Title>JonjubNet.Logging</Title>
     
-    <!-- Documentación XML -->
+    <!-- Documentaci�n XML -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);1591</NoWarn> <!-- Suprimir advertencias de documentación faltante temporalmente -->
+    <NoWarn>$(NoWarn);1591</NoWarn> <!-- Suprimir advertencias de documentaci�n faltante temporalmente -->
     
     <!-- SourceLink para debugging - DESHABILITADO temporalmente por bloqueo de archivos -->
     <PublishRepositoryUrl>false</PublishRepositoryUrl>
@@ -47,6 +47,7 @@
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="10.0.0" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
     
     <!-- SourceLink para debugging - COMENTADO temporalmente por bloqueo de archivos -->
     <!-- <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/> -->
@@ -79,7 +80,7 @@
     </ProjectReference>
   </ItemGroup>
   
-  <!-- Target para incluir explícitamente los ensamblados de proyectos internos en lib/ del paquete NuGet -->
+  <!-- Target para incluir expl�citamente los ensamblados de proyectos internos en lib/ del paquete NuGet -->
   <Target Name="IncludeReferencedAssembliesInPackage" AfterTargets="Build" BeforeTargets="GenerateNuspec">
     <PropertyGroup>
       <_ApplicationDllPath>$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Application\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Application.dll</_ApplicationDllPath>
@@ -112,7 +113,7 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
-  <!-- Excluir archivos de ejemplo de la compilación (solo son ejemplos de uso) -->
+  <!-- Excluir archivos de ejemplo de la compilaci�n (solo son ejemplos de uso) -->
   <ItemGroup>
     <Compile Remove="Examples\**" />
     <EmbeddedResource Remove="Examples\**" />

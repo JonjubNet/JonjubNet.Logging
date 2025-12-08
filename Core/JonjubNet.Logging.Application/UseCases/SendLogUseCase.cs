@@ -2,6 +2,7 @@ using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Domain.Entities;
 using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 
 namespace JonjubNet.Logging.Application.UseCases
 {
@@ -74,19 +75,35 @@ namespace JonjubNet.Logging.Application.UseCases
                     ? _sanitizationService.Sanitize(logEntry) 
                     : logEntry;
 
-                // Serializar JSON solo una vez si se necesita para Kafka
-                string? json = null;
-                if (_kafkaProducer != null && _kafkaProducer.IsEnabled && configuration.KafkaProducer.Enabled)
+                // OPTIMIZACIÓN: Detectar qué sinks necesitan JSON y serializar una sola vez
+                // Esto evita múltiples serializaciones del mismo logEntry
+                var needsJson = _kafkaProducer != null && _kafkaProducer.IsEnabled && configuration.KafkaProducer.Enabled;
+                var jsonSinks = new List<string>();
+                
+                // Verificar qué sinks necesitan JSON (Console, etc.)
+                foreach (var sink in _sinks)
                 {
-                    json = sanitizedEntry.ToJson();
+                    if (sink.IsEnabled && sink.Name == "Console")
+                    {
+                        needsJson = true;
+                        jsonSinks.Add(sink.Name);
+                    }
                 }
 
-                // Enviar a Kafka si está habilitado
-                if (_kafkaProducer != null && _kafkaProducer.IsEnabled && configuration.KafkaProducer.Enabled && json != null)
+                // Serializar JSON una sola vez si se necesita (Kafka o sinks que lo requieren)
+                string? sharedJson = null;
+                if (needsJson)
+                {
+                    // Usar serialización optimizada con ArrayPool
+                    sharedJson = JonjubNet.Logging.Domain.Common.JsonSerializationHelper.SerializeToJson(sanitizedEntry);
+                }
+
+                // Enviar a Kafka si está habilitado (usar JSON compartido)
+                if (_kafkaProducer != null && _kafkaProducer.IsEnabled && configuration.KafkaProducer.Enabled && sharedJson != null)
                 {
                     try
                     {
-                        await _kafkaProducer.SendAsync(json);
+                        await _kafkaProducer.SendAsync(sharedJson);
                     }
                     catch (Exception ex)
                     {
@@ -94,21 +111,50 @@ namespace JonjubNet.Logging.Application.UseCases
                     }
                 }
 
-                // Enviar a todos los sinks habilitados en paralelo (usar entrada sanitizada)
-                // OPTIMIZACIÓN: Iterar directamente sin ToList() para evitar allocation innecesaria
-                var sinkTasks = new List<Task>();
-                foreach (var sink in _sinks)
+                // OPTIMIZACIÓN: Asignar JSON pre-serializado al logEntry para que los sinks puedan reutilizarlo
+                if (sharedJson != null)
                 {
-                    if (sink.IsEnabled)
-                    {
-                        sinkTasks.Add(SendToSinkWithResilienceAsync(sink, sanitizedEntry));
-                    }
+                    sanitizedEntry.PreSerializedJson = sharedJson;
                 }
 
-                if (sinkTasks.Count > 0)
+                // Enviar a todos los sinks habilitados en paralelo (usar entrada sanitizada con JSON compartido)
+                // OPTIMIZACIÓN: Usar pool de listas para evitar allocations
+                var sinkTasks = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.RentTaskList();
+                try
                 {
-                    // Procesar sinks en paralelo para mejor throughput
-                    await Task.WhenAll(sinkTasks);
+                    // Primero contar cuántos sinks están habilitados para pre-allocar capacidad
+                    int enabledSinkCount = 0;
+                    foreach (var sink in _sinks)
+                    {
+                        if (sink.IsEnabled)
+                            enabledSinkCount++;
+                    }
+
+                    // Pre-allocar capacidad para evitar redimensionamientos
+                    if (sinkTasks.Capacity < enabledSinkCount)
+                    {
+                        sinkTasks.EnsureCapacity(enabledSinkCount);
+                    }
+
+                    // Agregar tareas de sinks habilitados
+                    foreach (var sink in _sinks)
+                    {
+                        if (sink.IsEnabled)
+                        {
+                            sinkTasks.Add(SendToSinkWithResilienceAsync(sink, sanitizedEntry));
+                        }
+                    }
+
+                    if (sinkTasks.Count > 0)
+                    {
+                        // Procesar sinks en paralelo para mejor throughput
+                        await Task.WhenAll(sinkTasks);
+                    }
+                }
+                finally
+                {
+                    // Devolver lista al pool
+                    JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.ReturnTaskList(sinkTasks);
                 }
             }
             catch (Exception ex)
@@ -120,6 +166,8 @@ namespace JonjubNet.Logging.Application.UseCases
         /// <summary>
         /// Envía un log a un sink con resiliencia (Retry -> Circuit Breaker -> DLQ)
         /// </summary>
+        /// <param name="sink">Sink destino</param>
+        /// <param name="logEntry">Entrada de log (puede contener PreSerializedJson para optimización)</param>
         private async Task SendToSinkWithResilienceAsync(ILogSink sink, StructuredLogEntry logEntry)
         {
             var retryPolicy = _retryPolicyManager?.GetPolicy(sink.Name);

@@ -61,7 +61,8 @@ namespace JonjubNet.Logging.Shared.Services
         private async Task ProcessPriorityQueuesAsync(CancellationToken stoppingToken)
         {
             var config = _configurationManager.Current.Batching;
-            var priorities = _priorityQueue!.GetPriorities().ToList();
+            // OPTIMIZACIÓN: Evitar ToList() innecesario - iterar directamente
+            var priorities = _priorityQueue!.GetPriorities();
 
             // Procesar colas de mayor a menor prioridad
             foreach (var priority in priorities)
@@ -197,55 +198,78 @@ namespace JonjubNet.Logging.Shared.Services
             try
             {
                 // OPTIMIZACIÓN: Completar enriquecimiento antes de procesar batches (en background)
-                var enrichedBatch = batch.Select(logEntry =>
+                // Eliminar LINQ Select().ToList() - usar foreach directo para reducir allocations
+                var enrichedBatch = new List<StructuredLogEntry>(batch.Count);
+                foreach (var logEntry in batch)
                 {
                     // Si necesita enriquecimiento completo, completarlo ahora
                     if (logEntry.Properties.ContainsKey("_NeedsFullEnrichment"))
                     {
-                        return _enrichLogEntryUseCase.CompleteEnrichment(logEntry);
+                        enrichedBatch.Add(_enrichLogEntryUseCase.CompleteEnrichment(logEntry));
                     }
-                    return logEntry;
-                }).ToList();
-
-                // Agrupar logs por sink
-                var logsBySink = enrichedBatch.GroupBy(log => GetSinkName(log))
-                    .ToList();
-
-                var tasks = logsBySink.Select(async group =>
-                {
-                    var sinkName = group.Key;
-                    var logs = group.ToList();
-
-                    // Crear batches inteligentes
-                    var batches = await _batchingService.CreateBatchesAsync(logs, sinkName, cancellationToken);
-
-                    // Procesar cada batch
-                    foreach (var logBatch in batches)
+                    else
                     {
-                        if (_compressionService.IsCompressionEnabled)
-                        {
-                            // Comprimir batch
-                            var compressedBatch = await _compressionService.CompressAsync(logBatch, cancellationToken);
-                            
-                            // Descomprimir y procesar
-                            var decompressedBatch = await _compressionService.DecompressAsync(compressedBatch, cancellationToken);
-                            
-                            // Enviar logs del batch
-                            await SendBatchAsync(decompressedBatch.LogEntries, cancellationToken);
-                        }
-                        else
-                        {
-                            // Enviar logs del batch sin compresión
-                            await SendBatchAsync(logBatch.LogEntries, cancellationToken);
-                        }
+                        enrichedBatch.Add(logEntry);
                     }
-                });
+                }
+
+                // OPTIMIZACIÓN: Agrupar logs por sink sin LINQ GroupBy().ToList()
+                // Usar Dictionary para agrupación más eficiente
+                var logsBySink = new Dictionary<string, List<StructuredLogEntry>>();
+                foreach (var log in enrichedBatch)
+                {
+                    var sinkName = GetSinkName(log);
+                    if (!logsBySink.TryGetValue(sinkName, out var sinkLogs))
+                    {
+                        sinkLogs = new List<StructuredLogEntry>();
+                        logsBySink[sinkName] = sinkLogs;
+                    }
+                    sinkLogs.Add(log);
+                }
+
+                var tasks = new List<Task>(logsBySink.Count);
+                foreach (var kvp in logsBySink)
+                {
+                    var sinkName = kvp.Key;
+                    var logs = kvp.Value;
+
+                    // Crear tarea para procesar este sink
+                    var task = ProcessSinkBatchAsync(sinkName, logs, cancellationToken);
+                    tasks.Add(task);
+                }
 
                 await Task.WhenAll(tasks);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error procesando batch de {Count} logs", batch.Count);
+            }
+        }
+
+        private async Task ProcessSinkBatchAsync(string sinkName, List<StructuredLogEntry> logs, CancellationToken cancellationToken)
+        {
+            // Crear batches inteligentes
+            var batches = await _batchingService.CreateBatchesAsync(logs, sinkName, cancellationToken);
+
+            // Procesar cada batch
+            foreach (var logBatch in batches)
+            {
+                if (_compressionService.IsCompressionEnabled)
+                {
+                    // Comprimir batch
+                    var compressedBatch = await _compressionService.CompressAsync(logBatch, cancellationToken);
+                    
+                    // Descomprimir y procesar
+                    var decompressedBatch = await _compressionService.DecompressAsync(compressedBatch, cancellationToken);
+                    
+                    // Enviar logs del batch
+                    await SendBatchAsync(decompressedBatch.LogEntries, cancellationToken);
+                }
+                else
+                {
+                    // Enviar logs del batch sin compresión
+                    await SendBatchAsync(logBatch.LogEntries, cancellationToken);
+                }
             }
         }
 

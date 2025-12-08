@@ -89,19 +89,42 @@ namespace JonjubNet.Logging.Shared.Services
             try
             {
                 // OPTIMIZACIÓN: Completar enriquecimiento antes de enviar (en background)
-                var enrichedEntries = batch.Select(logEntry =>
+                // Eliminar LINQ Select().ToList() - usar foreach directo para reducir allocations
+                var enrichedEntries = new List<StructuredLogEntry>(batch.Count);
+                foreach (var logEntry in batch)
                 {
                     // Si necesita enriquecimiento completo, completarlo ahora
                     if (logEntry.Properties.ContainsKey("_NeedsFullEnrichment"))
                     {
-                        return _enrichLogEntryUseCase.CompleteEnrichment(logEntry);
+                        enrichedEntries.Add(_enrichLogEntryUseCase.CompleteEnrichment(logEntry));
                     }
-                    return logEntry;
-                }).ToList();
+                    else
+                    {
+                        enrichedEntries.Add(logEntry);
+                    }
+                }
 
-                // Procesar en paralelo para mejor throughput
-                var tasks = enrichedEntries.Select(logEntry => _sendLogUseCase.ExecuteAsync(logEntry));
-                await Task.WhenAll(tasks);
+                // OPTIMIZACIÓN: Procesar en paralelo usando pool de listas
+                var tasks = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.RentTaskList();
+                try
+                {
+                    // Pre-allocar capacidad
+                    if (tasks.Capacity < enrichedEntries.Count)
+                    {
+                        tasks.EnsureCapacity(enrichedEntries.Count);
+                    }
+
+                    foreach (var logEntry in enrichedEntries)
+                    {
+                        tasks.Add(_sendLogUseCase.ExecuteAsync(logEntry));
+                    }
+
+                    await Task.WhenAll(tasks);
+                }
+                finally
+                {
+                    JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.ReturnTaskList(tasks);
+                }
             }
             catch (Exception ex)
             {

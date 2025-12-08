@@ -50,10 +50,10 @@ namespace JonjubNet.Logging.Application.UseCases
                 logEntry.MachineName = Environment.MachineName;
 
             if (configuration.Enrichment.IncludeProcess)
-                logEntry.ProcessId = Environment.ProcessId.ToString();
+                logEntry.ProcessId = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.ProcessIdToString(Environment.ProcessId);
 
             if (configuration.Enrichment.IncludeThread)
-                logEntry.ThreadId = Thread.CurrentThread.ManagedThreadId.ToString();
+                logEntry.ThreadId = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.ThreadIdToString(Thread.CurrentThread.ManagedThreadId);
 
             // Enriquecer con información del usuario
             if (_currentUserService != null)
@@ -90,25 +90,21 @@ namespace JonjubNet.Logging.Application.UseCases
             }
 
             // Agregar propiedades estáticas
+            // OPTIMIZACIÓN: Usar TryAdd en lugar de ContainsKey + asignación (una sola operación)
             foreach (var staticProperty in configuration.Enrichment.StaticProperties)
             {
-                if (!logEntry.Properties.ContainsKey(staticProperty.Key))
-                {
-                    logEntry.Properties[staticProperty.Key] = staticProperty.Value;
-                }
+                logEntry.Properties.TryAdd(staticProperty.Key, staticProperty.Value);
             }
 
             // Agregar propiedades de scopes activos
             if (_scopeManager != null)
             {
                 var scopeProperties = _scopeManager.GetCurrentScopeProperties();
+                // OPTIMIZACIÓN: Usar TryAdd en lugar de ContainsKey + asignación (una sola operación)
                 foreach (var scopeProperty in scopeProperties)
                 {
                     // Las propiedades del log entry tienen prioridad sobre las del scope
-                    if (!logEntry.Properties.ContainsKey(scopeProperty.Key))
-                    {
-                        logEntry.Properties[scopeProperty.Key] = scopeProperty.Value;
-                    }
+                    logEntry.Properties.TryAdd(scopeProperty.Key, scopeProperty.Value);
                 }
             }
 
@@ -139,10 +135,10 @@ namespace JonjubNet.Logging.Application.UseCases
                 logEntry.MachineName = Environment.MachineName;
 
             if (configuration.Enrichment.IncludeProcess)
-                logEntry.ProcessId = Environment.ProcessId.ToString();
+                logEntry.ProcessId = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.ProcessIdToString(Environment.ProcessId);
 
             if (configuration.Enrichment.IncludeThread)
-                logEntry.ThreadId = Thread.CurrentThread.ManagedThreadId.ToString();
+                logEntry.ThreadId = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.ThreadIdToString(Thread.CurrentThread.ManagedThreadId);
 
             // Usuario (rápido si está en cache, lento si accede a HTTP context)
             if (_currentUserService != null)

@@ -21,6 +21,10 @@ namespace JonjubNet.Logging.Application.UseCases
             Dictionary<string, object>? context = null,
             Exception? exception = null)
         {
+            // OPTIMIZACIÓN: Pre-allocar capacidad estimada para diccionarios si vienen null
+            var estimatedPropertiesCapacity = properties?.Count ?? 4; // Estimación conservadora
+            var estimatedContextCapacity = context?.Count ?? 2; // Estimación conservadora
+            
             var logEntry = new StructuredLogEntry
             {
                 Message = message ?? string.Empty,
@@ -28,8 +32,8 @@ namespace JonjubNet.Logging.Application.UseCases
                 Operation = operation ?? string.Empty,
                 Category = category?.Value ?? LogCategoryValue.General.Value,
                 EventType = eventType?.Value,
-                Properties = properties ?? new Dictionary<string, object>(),
-                Context = context ?? new Dictionary<string, object>(),
+                Properties = properties ?? new Dictionary<string, object>(estimatedPropertiesCapacity),
+                Context = context ?? new Dictionary<string, object>(estimatedContextCapacity),
                 Exception = exception,
                 Timestamp = DateTime.UtcNow
             };

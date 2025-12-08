@@ -31,7 +31,7 @@ namespace JonjubNet.Logging.Shared.Services
             if (stack == null || stack.IsEmpty)
             {
                 // Retornar diccionario vacío reutilizable para evitar allocations
-                return new Dictionary<string, object>(0);
+                return JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.GetEmptyDictionary();
             }
 
             // Estimar capacidad inicial basado en número de scopes

@@ -7,7 +7,7 @@ namespace JonjubNet.Logging.Domain.Entities
     /// <summary>
     /// Entrada de log estructurado
     /// </summary>
-    public class StructuredLogEntry
+    public class StructuredLogEntry : IPreSerializedLogEntry
     {
         /// <summary>
         /// Nombre del servicio
@@ -165,6 +165,11 @@ namespace JonjubNet.Logging.Domain.Entities
         public string? ResponseBody { get; set; }
 
         /// <summary>
+        /// JSON pre-serializado para compartir entre múltiples sinks (optimización de performance)
+        /// </summary>
+        public string? PreSerializedJson { get; set; }
+
+        /// <summary>
         /// Convierte la entrada de log a JSON usando source generation para mejor rendimiento y AOT compatibility.
         /// Maneja errores de serialización sin afectar la aplicación.
         /// </summary>
@@ -197,7 +202,8 @@ namespace JonjubNet.Logging.Domain.Entities
                 catch
                 {
                     // Fallback absoluto si incluso el error falla
-                    return $"{{\"Error\":\"Serialization failed: {ex.Message}\",\"Timestamp\":\"{Timestamp:O}\"}}";
+                    // OPTIMIZACIÓN: Usar string concatenation en lugar de interpolation para reducir allocations
+                    return "{\"Error\":\"Serialization failed: " + ex.Message + "\",\"Timestamp\":\"" + Timestamp.ToString("O") + "\"}";
                 }
             }
         }

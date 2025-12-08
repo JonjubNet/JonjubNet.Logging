@@ -297,7 +297,8 @@ namespace JonjubNet.Logging.Shared
 
             // ✅ Registrar Pipeline Behaviors de logging automático para MediatR
             // Esto registra automáticamente todas las peticiones y respuestas de MediatR
-            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(Application.Behaviours.LoggingBehaviour<,>));
+            // IMPORTANTE: Usar el tipo completo con namespace para asegurar que se resuelva correctamente
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(JonjubNet.Logging.Application.Behaviours.LoggingBehaviour<,>));
 
             return services;
         }
