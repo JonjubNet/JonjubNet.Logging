@@ -152,12 +152,14 @@ namespace JonjubNet.Logging.Shared.Tests.Integration
 
         private static StructuredLogEntry CreateBasicLogEntry()
         {
-            return new StructuredLogEntry(
-                LogLevelValue.Information,
-                LogCategoryValue.Application,
-                "Test message",
-                "TestOperation",
-                DateTime.UtcNow);
+            return new StructuredLogEntry
+            {
+                Message = "Test message",
+                LogLevel = LogLevelValue.Information.Value,
+                Operation = "TestOperation",
+                Category = LogCategoryValue.Application.Value,
+                Timestamp = DateTime.UtcNow
+            };
         }
 
         private static LoggingConfiguration CreateDefaultConfiguration()
@@ -173,7 +175,7 @@ namespace JonjubNet.Logging.Shared.Tests.Integration
         {
             var mock = new Mock<ILoggingConfigurationManager>();
             mock.Setup(x => x.Current).Returns(config);
-            mock.Setup(x => x.GetCurrent()).Returns(config);
+            mock.Setup(x => x.Current).Returns(config);
             return mock;
         }
     }

@@ -9,7 +9,7 @@ namespace JonjubNet.Logging.Domain.ValueObjects
         private static readonly HashSet<string> ValidCategories = new(StringComparer.OrdinalIgnoreCase)
         {
             "General", "Security", "Audit", "Performance", "UserAction", 
-            "System", "Business", "Integration", "Database", "External", "BusinessLogic"
+            "System", "Business", "Integration", "Database", "External", "BusinessLogic", "Application"
         };
 
         /// <summary>
@@ -29,6 +29,7 @@ namespace JonjubNet.Logging.Domain.ValueObjects
         public static LogCategoryValue Database => new("Database");
         public static LogCategoryValue External => new("External");
         public static LogCategoryValue BusinessLogic => new("BusinessLogic");
+        public static LogCategoryValue Application => new("Application");
 
         private LogCategoryValue(string value)
         {

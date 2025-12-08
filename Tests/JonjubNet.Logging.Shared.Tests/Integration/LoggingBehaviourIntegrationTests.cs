@@ -2,6 +2,7 @@ using FluentAssertions;
 using JonjubNet.Logging.Application.Behaviours;
 using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
+using JonjubNet.Logging.Application.UseCases;
 using JonjubNet.Logging.Shared.Services;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -38,22 +39,27 @@ namespace JonjubNet.Logging.Shared.Tests.Integration
             };
             _configManagerMock = new Mock<ILoggingConfigurationManager>();
             _configManagerMock.Setup(x => x.Current).Returns(config);
-            _configManagerMock.Setup(x => x.GetCurrent()).Returns(config);
 
-            var createUseCase = new CreateLogEntryUseCase(
-                _loggerFactoryMock.Object.CreateLogger<CreateLogEntryUseCase>(),
-                _configManagerMock.Object);
+            // Crear UseCases con los constructores correctos
+            var createUseCase = new JonjubNet.Logging.Application.UseCases.CreateLogEntryUseCase();
 
-            var enrichUseCase = new EnrichLogEntryUseCase(
-                _loggerFactoryMock.Object.CreateLogger<EnrichLogEntryUseCase>(),
+            var enrichUseCase = new JonjubNet.Logging.Application.UseCases.EnrichLogEntryUseCase(
                 _configManagerMock.Object,
                 null, // IHttpContextProvider
-                null); // ICurrentUserService
+                null, // ICurrentUserService
+                null); // ILogScopeManager
 
-            var sendUseCase = new Mock<SendLogUseCase>(
-                _loggerFactoryMock.Object.CreateLogger<SendLogUseCase>(),
+            var sendUseCase = new JonjubNet.Logging.Application.UseCases.SendLogUseCase(
+                _loggerFactoryMock.Object.CreateLogger<JonjubNet.Logging.Application.UseCases.SendLogUseCase>(),
                 _configManagerMock.Object,
-                Array.Empty<ILogSink>()).Object;
+                Array.Empty<ILogSink>(),
+                null, // IKafkaProducer
+                null, // ILogFilter
+                null, // ILogSamplingService
+                null, // IDataSanitizationService
+                null, // ICircuitBreakerManager
+                null, // IRetryPolicyManager
+                null); // IDeadLetterQueue
 
             _loggingService = new StructuredLoggingService(
                 _loggerFactoryMock.Object,
@@ -100,9 +106,7 @@ namespace JonjubNet.Logging.Shared.Tests.Integration
                     It.IsAny<string>(),
                     It.IsAny<string>(),
                     It.IsAny<Dictionary<string, object>>(),
-                    It.IsAny<Dictionary<string, object>>(),
-                    It.IsAny<Dictionary<string, object>>(),
-                    It.IsAny<Exception>()))
+                    It.IsAny<Dictionary<string, object>>()))
                 .Throws(new InvalidOperationException("Logging service error"));
 
             var behaviour = new LoggingBehaviour<TestRequest, TestResponse>(
