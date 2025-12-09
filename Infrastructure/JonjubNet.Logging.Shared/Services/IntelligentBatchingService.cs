@@ -26,11 +26,12 @@ namespace JonjubNet.Logging.Shared.Services
             string sinkName,
             CancellationToken cancellationToken = default)
         {
+            var batches = new List<LogBatch>();
+            
             if (!_config.Enabled)
             {
                 // Si batching está deshabilitado, crear un batch por log
                 // OPTIMIZACIÓN: Eliminar Select().ToList() - usar foreach directo
-                var batches = new List<LogBatch>();
                 foreach (var log in logEntries)
                 {
                     batches.Add(new LogBatch
@@ -41,8 +42,6 @@ namespace JonjubNet.Logging.Shared.Services
                 }
                 return batches;
             }
-
-            var batches = new List<LogBatch>();
             var batchSize = GetOptimalBatchSize(sinkName);
             var maxInterval = GetMaxBatchInterval(sinkName);
             var currentBatch = new List<StructuredLogEntry>();

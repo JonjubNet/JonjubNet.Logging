@@ -145,14 +145,15 @@ namespace JonjubNet.Logging.Shared.Services
                 .Where(i => sinkName == null || i.SinkName == sinkName)
                 .Where(i => i.RetryCount < config.MaxRetriesPerItem);
 
-            foreach (var item in itemsToRetry)
+            var itemsList = itemsToRetry.ToList();
+            foreach (var item in itemsList)
             {
                 item.RetryCount++;
                 item.LastRetryAt = DateTime.UtcNow;
             }
 
             _logger?.LogInformation("Reintentando {Count} items de DLQ (sink: {SinkName})", 
-                itemsToRetry.Count, sinkName ?? "todos");
+                itemsList.Count, sinkName ?? "todos");
 
             return Task.FromResult(true);
         }
