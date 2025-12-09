@@ -47,7 +47,9 @@ namespace JonjubNet.Logging.Shared
         {
             // ✅ PRIMERO: Registrar servicios de Application (UseCases)
             // Debe registrarse ANTES de intentar resolverlos
+            System.Console.WriteLine("[DIAGNÓSTICO] AddSharedInfrastructure() iniciado - Llamando AddApplicationServices()...");
             services.AddApplicationServices();
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
             
             // Registrar configuración con IOptionsMonitor para Hot-Reload
             services.Configure<LoggingConfiguration>(
@@ -159,20 +161,70 @@ namespace JonjubNet.Logging.Shared
             // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
             services.AddSingleton<IStructuredLoggingService>(sp =>
             {
-                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
-                var createUseCase = sp.GetRequiredService<CreateLogEntryUseCase>();
-                var enrichUseCase = sp.GetRequiredService<EnrichLogEntryUseCase>();
-                var sendUseCase = sp.GetRequiredService<SendLogUseCase>();
-                var sinks = sp.GetServices<ILogSink>();
-                var scopeManager = sp.GetRequiredService<ILogScopeManager>();
-                var kafkaProducer = sp.GetService<IKafkaProducer>();
-                var logQueue = sp.GetService<ILogQueue>();
-                var priorityQueue = sp.GetService<IPriorityLogQueue>();
+                System.Console.WriteLine("[DIAGNÓSTICO] 🔵 Registrando IStructuredLoggingService - Resolviendo dependencias...");
+                try
+                {
+                    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ ILoggerFactory resuelto");
+                    
+                    var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ ILoggingConfigurationManager resuelto");
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver CreateLogEntryUseCase...");
+                    var createUseCase = sp.GetService<CreateLogEntryUseCase>();
+                    if (createUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "CreateLogEntryUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructure.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ CreateLogEntryUseCase resuelto");
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver EnrichLogEntryUseCase...");
+                    var enrichUseCase = sp.GetService<EnrichLogEntryUseCase>();
+                    if (enrichUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "EnrichLogEntryUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructure.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ EnrichLogEntryUseCase resuelto");
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver SendLogUseCase...");
+                    var sendUseCase = sp.GetService<SendLogUseCase>();
+                    if (sendUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "SendLogUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructure.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ SendLogUseCase resuelto");
+                    
+                    var sinks = sp.GetServices<ILogSink>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ ILogSink resueltos: {sinks.Count()} sinks");
+                    
+                    var scopeManager = sp.GetRequiredService<ILogScopeManager>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ ILogScopeManager resuelto");
+                    
+                    var kafkaProducer = sp.GetService<IKafkaProducer>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ IKafkaProducer: {(kafkaProducer != null ? "disponible" : "null")}");
+                    
+                    var logQueue = sp.GetService<ILogQueue>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ ILogQueue: {(logQueue != null ? "disponible" : "null")}");
+                    
+                    var priorityQueue = sp.GetService<IPriorityLogQueue>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ IPriorityLogQueue: {(priorityQueue != null ? "disponible" : "null")}");
 
-                return new StructuredLoggingService(
-                    loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
-                    sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
+                    var structuredLoggingService = new StructuredLoggingService(
+                        loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
+                        sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO] ✅ IStructuredLoggingService instanciado exitosamente");
+                    return structuredLoggingService;
+                }
+                catch (Exception ex)
+                {
+                    System.Console.WriteLine($"[DIAGNÓSTICO] ❌ ERROR al registrar IStructuredLoggingService: {ex.Message}");
+                    System.Console.WriteLine($"[DIAGNÓSTICO] StackTrace: {ex.StackTrace}");
+                    throw;
+                }
             });
 
             return services;
@@ -193,7 +245,9 @@ namespace JonjubNet.Logging.Shared
         {
             // ✅ PRIMERO: Registrar servicios de Application (UseCases)
             // Debe registrarse ANTES de intentar resolverlos
+            System.Console.WriteLine("[DIAGNÓSTICO] AddSharedInfrastructureWithoutHost() iniciado - Llamando AddApplicationServices()...");
             services.AddApplicationServices();
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
             
             // Registrar configuración con IOptionsMonitor para Hot-Reload
             services.Configure<LoggingConfiguration>(
@@ -279,27 +333,106 @@ namespace JonjubNet.Logging.Shared
             // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
             services.AddSingleton<IStructuredLoggingService>(sp =>
             {
-                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
-                var createUseCase = sp.GetRequiredService<CreateLogEntryUseCase>();
-                var enrichUseCase = sp.GetRequiredService<EnrichLogEntryUseCase>();
-                var sendUseCase = sp.GetRequiredService<SendLogUseCase>();
-                var sinks = sp.GetServices<ILogSink>();
-                var scopeManager = sp.GetRequiredService<ILogScopeManager>();
-                var kafkaProducer = sp.GetService<IKafkaProducer>();
-                var logQueue = sp.GetService<ILogQueue>();
-                var priorityQueue = sp.GetService<IPriorityLogQueue>();
+                System.Console.WriteLine("[DIAGNÓSTICO] 🔵 Registrando IStructuredLoggingService (WithoutHost) - Resolviendo dependencias...");
+                try
+                {
+                    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ ILoggerFactory resuelto");
+                    
+                    var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ ILoggingConfigurationManager resuelto");
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver CreateLogEntryUseCase...");
+                    var createUseCase = sp.GetService<CreateLogEntryUseCase>();
+                    if (createUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "CreateLogEntryUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructureWithoutHost.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ CreateLogEntryUseCase resuelto");
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver EnrichLogEntryUseCase...");
+                    var enrichUseCase = sp.GetService<EnrichLogEntryUseCase>();
+                    if (enrichUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "EnrichLogEntryUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructureWithoutHost.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ EnrichLogEntryUseCase resuelto");
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver SendLogUseCase...");
+                    var sendUseCase = sp.GetService<SendLogUseCase>();
+                    if (sendUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "SendLogUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructureWithoutHost.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ SendLogUseCase resuelto");
+                    
+                    var sinks = sp.GetServices<ILogSink>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ ILogSink resueltos: {sinks.Count()} sinks");
+                    
+                    var scopeManager = sp.GetRequiredService<ILogScopeManager>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ ILogScopeManager resuelto");
+                    
+                    var kafkaProducer = sp.GetService<IKafkaProducer>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ IKafkaProducer: {(kafkaProducer != null ? "disponible" : "null")}");
+                    
+                    var logQueue = sp.GetService<ILogQueue>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ ILogQueue: {(logQueue != null ? "disponible" : "null")}");
+                    
+                    var priorityQueue = sp.GetService<IPriorityLogQueue>();
+                    System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ IPriorityLogQueue: {(priorityQueue != null ? "disponible" : "null")}");
 
-                return new StructuredLoggingService(
-                    loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
-                    sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
+                    var structuredLoggingService = new StructuredLoggingService(
+                        loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
+                        sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
+                    
+                    System.Console.WriteLine("[DIAGNÓSTICO] ✅ IStructuredLoggingService (WithoutHost) instanciado exitosamente");
+                    return structuredLoggingService;
+                }
+                catch (Exception ex)
+                {
+                    System.Console.WriteLine($"[DIAGNÓSTICO] ❌ ERROR al registrar IStructuredLoggingService (WithoutHost): {ex.Message}");
+                    System.Console.WriteLine($"[DIAGNÓSTICO] StackTrace: {ex.StackTrace}");
+                    throw;
+                }
             });
 
             // ✅ Registrar Pipeline Behaviors de logging automático para MediatR
             // Esto registra automáticamente todas las peticiones y respuestas de MediatR
-            // IMPORTANTE: Usar el tipo completo con namespace para asegurar que se resuelva correctamente
-            var loggingBehaviourType = typeof(JonjubNet.Logging.Application.Behaviours.LoggingBehaviour<,>);
-            services.AddTransient(typeof(IPipelineBehavior<,>), loggingBehaviourType);
+            // CRÍTICO: El ensamblado JonjubNet.Logging.Application debe estar cargado ANTES de esto
+            // En Program.cs se fuerza la carga con: using JonjubNet.Logging.Application.Behaviours;
+            // El orden importa: los Pipeline Behaviors se ejecutan en orden INVERSO al registro
+            // LoggingBehaviour se registra PRIMERO aquí, luego ValidationBehaviour en AddApplicationServices
+            // Por lo tanto, el orden de ejecución será: ValidationBehaviour -> LoggingBehaviour
+            
+            // 🔍 LOG DE DIAGNÓSTICO: Verificar que el tipo se puede resolver
+            try
+            {
+                var loggingBehaviourType = typeof(JonjubNet.Logging.Application.Behaviours.LoggingBehaviour<,>);
+                var assembly = loggingBehaviourType.Assembly;
+                var assemblyName = assembly.GetName().Name;
+                var typeName = loggingBehaviourType.FullName;
+                
+                // Usar Console.WriteLine como fallback para diagnóstico (no requiere ServiceProvider)
+                System.Console.WriteLine($"[DIAGNÓSTICO] Intentando registrar LoggingBehaviour");
+                System.Console.WriteLine($"[DIAGNÓSTICO] Assembly={assemblyName}, Type={typeName}");
+                System.Console.WriteLine($"[DIAGNÓSTICO] Assembly Location={assembly.Location ?? "N/A"}");
+                
+                services.AddTransient(typeof(IPipelineBehavior<,>), loggingBehaviourType);
+                
+                System.Console.WriteLine($"[DIAGNÓSTICO] ✅✅✅ LoggingBehaviour REGISTRADO correctamente como IPipelineBehavior ✅✅✅");
+            }
+            catch (Exception ex)
+            {
+                // Si falla, loguear el error y registrar de todas formas
+                System.Console.WriteLine($"[DIAGNÓSTICO] ❌❌❌ ERROR al registrar LoggingBehaviour: {ex.Message}");
+                System.Console.WriteLine($"[DIAGNÓSTICO] StackTrace: {ex.StackTrace}");
+                
+                // Intentar registrar de todas formas
+                services.AddTransient(typeof(IPipelineBehavior<,>), typeof(JonjubNet.Logging.Application.Behaviours.LoggingBehaviour<,>));
+            }
 
             return services;
         }

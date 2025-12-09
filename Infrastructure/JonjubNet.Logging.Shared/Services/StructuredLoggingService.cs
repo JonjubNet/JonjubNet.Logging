@@ -98,50 +98,75 @@ namespace JonjubNet.Logging.Shared.Services
 
         public void LogCustom(StructuredLogEntry logEntry)
         {
-            if (!_configurationManager.Current.Enabled)
+            // 🔍 LOGGING TEMPORAL DE DIAGNÓSTICO
+            _logger.LogInformation("🔵 [DIAG] LogCustom() llamado - Message: {Message}, Timestamp: {Timestamp}", 
+                logEntry.Message, logEntry.Timestamp);
+
+            var config = _configurationManager.Current;
+            if (!config.Enabled)
+            {
+                _logger.LogWarning("❌ [DIAG] Logging DESHABILITADO en LogCustom - Mensaje descartado");
                 return;
+            }
+
+            _logger.LogInformation("✅ [DIAG] Logging habilitado, enriqueciendo logEntry...");
 
             try
             {
                 // OPTIMIZACIÓN: Enriquecer solo lo esencial (rápido, ~0.1ms)
                 // El enriquecimiento completo (HTTP context, body) se hace en background
                 var minimalEnrichedEntry = _enrichLogEntryUseCase.ExecuteMinimal(logEntry);
+                _logger.LogInformation("✅ [DIAG] LogEntry enriquecido mínimamente");
 
                 // Usar cola prioritaria si está disponible, sino usar cola estándar
-                if (_priorityQueue != null && _configurationManager.Current.Batching.EnablePriorityQueues)
+                if (_priorityQueue != null && config.Batching.EnablePriorityQueues)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Intentando encolar en PriorityQueue...");
                     // TryEnqueue es síncrono y no bloqueante - overhead mínimo (~0.01ms)
                     if (!_priorityQueue.TryEnqueue(minimalEnrichedEntry))
                     {
                         // Cola llena - log crítico pero no bloqueamos la aplicación
-                        _logger.LogWarning("Cola de logs prioritaria llena, descartando log. Considera aumentar capacidad o reducir volumen.");
+                        _logger.LogWarning("❌ [DIAG] Cola de logs prioritaria LLENA - Mensaje descartado. Considera aumentar capacidad o reducir volumen.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("✅ [DIAG] Log encolado exitosamente en PriorityQueue");
                     }
                 }
                 else if (_logQueue != null)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Intentando encolar en LogQueue estándar...");
                     // TryEnqueue es síncrono y no bloqueante - overhead mínimo (~0.01ms)
                     if (!_logQueue.TryEnqueue(minimalEnrichedEntry))
                     {
                         // Cola llena - log crítico pero no bloqueamos la aplicación
-                        _logger.LogWarning("Cola de logs llena, descartando log. Considera aumentar capacidad o reducir volumen.");
+                        _logger.LogWarning("❌ [DIAG] Cola de logs estándar LLENA - Mensaje descartado. Considera aumentar capacidad o reducir volumen.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("✅ [DIAG] Log encolado exitosamente en LogQueue estándar");
                     }
                 }
                 else
                 {
+                    _logger.LogWarning("⚠️ [DIAG] NO HAY COLAS DISPONIBLES - Usando fallback directo (Task.Run)");
                     // Fallback: procesamiento directo (para compatibilidad)
                     // Completar enriquecimiento antes de enviar
                     var fullyEnrichedEntry = _enrichLogEntryUseCase.Execute(minimalEnrichedEntry);
+                    _logger.LogInformation("✅ [DIAG] LogEntry enriquecido completamente, enviando directamente...");
                     
                     // Usar Task.Run con manejo de errores mejorado
                     var task = Task.Run(async () =>
                     {
                         try
                         {
+                            _logger.LogInformation("🔵 [DIAG] Task.Run ejecutando SendLogUseCase.ExecuteAsync()...");
                             await _sendLogUseCase.ExecuteAsync(fullyEnrichedEntry);
+                            _logger.LogInformation("✅ [DIAG] SendLogUseCase.ExecuteAsync() completado");
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error al procesar log");
+                            _logger.LogError(ex, "❌ [DIAG] Error al procesar log en Task.Run");
                         }
                     }, CancellationToken.None);
 
@@ -150,14 +175,14 @@ namespace JonjubNet.Logging.Shared.Services
                     {
                         if (t.IsFaulted && t.Exception != null)
                         {
-                            _logger.LogError(t.Exception, "Error no manejado en procesamiento de log");
+                            _logger.LogError(t.Exception, "❌ [DIAG] Error no manejado en procesamiento de log (Task.Run)");
                         }
                     }, TaskContinuationOptions.OnlyOnFaulted);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al crear o enriquecer log");
+                _logger.LogError(ex, "❌ [DIAG] Error al crear o enriquecer log en LogCustom()");
             }
         }
 
@@ -274,8 +299,18 @@ namespace JonjubNet.Logging.Shared.Services
         {
             ArgumentNullException.ThrowIfNull(message);
 
-            if (!_configurationManager.Current.Enabled)
+            // 🔍 LOGGING TEMPORAL DE DIAGNÓSTICO
+            _logger.LogInformation("🔵 [DIAG] Log() llamado - Level: {Level}, Message: {Message}, Operation: {Operation}", 
+                logLevel.Value, message, operation);
+
+            var config = _configurationManager.Current;
+            if (!config.Enabled)
+            {
+                _logger.LogWarning("❌ [DIAG] Logging DESHABILITADO en configuración - Mensaje descartado");
                 return;
+            }
+
+            _logger.LogInformation("✅ [DIAG] Logging habilitado, creando logEntry...");
 
             try
             {
@@ -290,11 +325,14 @@ namespace JonjubNet.Logging.Shared.Services
                     exception
                 );
 
+                _logger.LogInformation("✅ [DIAG] LogEntry creado - Timestamp: {Timestamp}, Category: {Category}", 
+                    logEntry.Timestamp, logEntry.Category);
+
                 LogCustom(logEntry);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al crear entrada de log");
+                _logger.LogError(ex, "❌ [DIAG] Error al crear entrada de log");
             }
         }
     }

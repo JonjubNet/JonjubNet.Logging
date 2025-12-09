@@ -29,11 +29,17 @@ namespace JonjubNet.Logging.Shared.Services
             if (!_config.Enabled)
             {
                 // Si batching está deshabilitado, crear un batch por log
-                return logEntries.Select(log => new LogBatch
+                // OPTIMIZACIÓN: Eliminar Select().ToList() - usar foreach directo
+                var batches = new List<LogBatch>();
+                foreach (var log in logEntries)
                 {
-                    LogEntries = new List<StructuredLogEntry> { log },
-                    SinkName = sinkName
-                }).ToList();
+                    batches.Add(new LogBatch
+                    {
+                        LogEntries = new List<StructuredLogEntry> { log },
+                        SinkName = sinkName
+                    });
+                }
+                return batches;
             }
 
             var batches = new List<LogBatch>();

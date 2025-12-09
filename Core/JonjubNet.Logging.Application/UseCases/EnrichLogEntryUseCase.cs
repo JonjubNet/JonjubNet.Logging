@@ -148,24 +148,20 @@ namespace JonjubNet.Logging.Application.UseCases
             }
 
             // Agregar propiedades estáticas (rápido)
+            // OPTIMIZACIÓN: Usar TryAdd en lugar de ContainsKey + asignación
             foreach (var staticProperty in configuration.Enrichment.StaticProperties)
             {
-                if (!logEntry.Properties.ContainsKey(staticProperty.Key))
-                {
-                    logEntry.Properties[staticProperty.Key] = staticProperty.Value;
-                }
+                logEntry.Properties.TryAdd(staticProperty.Key, staticProperty.Value);
             }
 
             // Agregar propiedades de scopes activos (rápido)
+            // OPTIMIZACIÓN: Usar TryAdd en lugar de ContainsKey + asignación
             if (_scopeManager != null)
             {
                 var scopeProperties = _scopeManager.GetCurrentScopeProperties();
                 foreach (var scopeProperty in scopeProperties)
                 {
-                    if (!logEntry.Properties.ContainsKey(scopeProperty.Key))
-                    {
-                        logEntry.Properties[scopeProperty.Key] = scopeProperty.Value;
-                    }
+                    logEntry.Properties.TryAdd(scopeProperty.Key, scopeProperty.Value);
                 }
             }
 

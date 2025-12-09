@@ -134,6 +134,9 @@ namespace JonjubNet.Logging.Shared.Services
 
         private async Task ProcessStandardQueueAsync(CancellationToken stoppingToken)
         {
+            // 🔍 LOGGING TEMPORAL DE DIAGNÓSTICO
+            _logger.LogInformation("🔵 [DIAG] IntelligentLogProcessor.ProcessStandardQueueAsync() iniciado");
+
             var reader = _standardQueue!.Reader;
             var batch = new List<StructuredLogEntry>();
             var config = _configurationManager.Current.Batching;
@@ -147,14 +150,18 @@ namespace JonjubNet.Logging.Shared.Services
                     // Recopilar logs
                     while (await reader.WaitToReadAsync(stoppingToken))
                     {
+                        _logger.LogInformation("🔵 [DIAG] IntelligentLogProcessor: Esperando logs en cola...");
                         while (reader.TryRead(out var logEntry))
                         {
+                            _logger.LogInformation("✅ [DIAG] IntelligentLogProcessor: Log leído de cola - Message: {Message}, Timestamp: {Timestamp}", 
+                                logEntry.Message, logEntry.Timestamp);
                             batch.Add(logEntry);
 
                             // Si el batch está lleno o ha pasado el intervalo, procesar
                             if (batch.Count >= config.DefaultBatchSize ||
                                 (batch.Count > 0 && DateTime.UtcNow - batchStartTime >= maxInterval))
                             {
+                                _logger.LogInformation("🔵 [DIAG] IntelligentLogProcessor: Procesando batch de {Count} logs", batch.Count);
                                 await ProcessBatchAsync(batch, stoppingToken);
                                 batch.Clear();
                                 batchStartTime = DateTime.UtcNow;

@@ -6,11 +6,11 @@
 
 **Puntuación General: 10.0/10** ⭐⭐⭐⭐⭐ (funcionalidad crítica implementada y tests de integración completados)
 
-**Versión Actual: 3.0.13** - .NET 10 y C# 13
+**Versión Actual: 3.0.12** - .NET 10 y C# 13
 
-**Estado: ✅ COMPLETO Y OPTIMIZADO - Listo para producción con todas las funcionalidades críticas implementadas, optimizaciones de performance y arquitectura Clean Architecture validada (v3.0.13)**
+**Estado: ✅ COMPLETO Y OPTIMIZADO - Listo para producción con todas las funcionalidades críticas implementadas y optimizaciones de performance (v3.0.12)**
 
-**Última actualización:** Diciembre 2024 (v3.0.13)
+**Última actualización:** Diciembre 2024 (v3.0.12)
 
 **✅ NOTA IMPORTANTE:** En la versión 3.0.9 se identificó que `LoggingBehaviour` (logging automático de MediatR) estaba completamente vacío. Esta funcionalidad crítica fue implementada en v3.0.10 y completada con tests de integración en v3.0.11. Ver `ANALISIS_LOGGING_BEHAVIOUR_FALTANTE.md` para detalles.
 
@@ -46,14 +46,6 @@
   - ✅ **LoggingBehaviour optimizado** - DictionaryPool local + JsonSerializerOptions cacheado (reducción 60-70% allocations)
   - ✅ **DataSanitizationService optimizado** - Pre-allocación de capacidad en headers + eliminado ToList() en lock (reducción 20-30% allocations)
   - ✅ **StructuredLoggingService optimizado** - Pre-allocación en BeginScope (mejora 10-15% throughput)
-- ✅ **NUEVO - Optimizaciones de GC y Procesamiento (v3.0.13):**
-  - ✅ **GCOptimizationHelpers implementado** - Diccionario vacío reutilizable, pool de listas de Task, cache de ProcessId/ThreadId strings (reducción 20-30% allocations adicionales)
-  - ✅ **EnrichLogEntryUseCase optimizado** - TryAdd() en lugar de ContainsKey + asignación (reducción 50% en operaciones de diccionario)
-  - ✅ **CreateLogEntryUseCase optimizado** - Pre-allocación de capacidad en diccionarios (evita redimensionamientos)
-  - ✅ **IntelligentLogProcessor optimizado** - Eliminado Select().ToList() y GroupBy().ToList(), Dictionary manual (reducción 60-70% allocations en batches)
-  - ✅ **SynchronousLogProcessor optimizado** - Eliminado Select().ToList(), pool de listas para Task.WhenAll (reducción 50-60% allocations)
-  - ✅ **Arquitectura Clean Architecture validada** - Sin violaciones, 100% respetada
-  - ✅ **MediatR como dependencia directa** - Garantiza compatibilidad en WebAPI
 - ✅ **LoggingBehaviour implementado** (v3.0.10) - Logging automático de MediatR completamente funcional
   - ✅ Implementación completa de `IPipelineBehavior<TRequest, TResponse>`
   - ✅ Registrado automáticamente en `AddSharedInfrastructure`
@@ -405,14 +397,6 @@
     - ✅ DictionaryPool local implementado (reducción 60-70% allocations en hot path crítico)
     - ✅ JsonSerializerOptions cacheado estáticamente (evita allocations repetidas)
     - ✅ Pre-allocación de capacidad en diccionarios
-
-18. **Optimizaciones de GC y Procesamiento** (v3.0.13 - Diciembre 2024)
-    - ✅ GCOptimizationHelpers: Diccionario vacío reutilizable, pool de listas de Task, cache de ProcessId/ThreadId
-    - ✅ EnrichLogEntryUseCase: TryAdd() en lugar de ContainsKey + asignación (50% menos operaciones)
-    - ✅ CreateLogEntryUseCase: Pre-allocación de capacidad en diccionarios
-    - ✅ IntelligentLogProcessor: Eliminado LINQ Select().ToList() y GroupBy().ToList() (60-70% menos allocations)
-    - ✅ SynchronousLogProcessor: Eliminado LINQ, pool de listas (50-60% menos allocations)
-    - ✅ Reducción total adicional: 20-30% allocations en procesamiento de mensajes
     - ✅ Impacto: Reducción significativa en overhead de logging automático MediatR
 
 18. **DataSanitizationService Optimizado** (v3.0.12 - Diciembre 2024)
@@ -1266,10 +1250,10 @@ Este componente es una **biblioteca que procesa logs y los envía a sinks**. No 
 Este componente está **listo para uso enterprise interno** y puede competir con soluciones comerciales. Para ser adoptado masivamente como solución open-source de referencia, necesita principalmente ecosistema público (NuGet, comunidad) y documentación avanzada.
 
 **Comparado con estándares de la industria:**
-- **Nivel Core:** ⭐⭐⭐⭐⭐ (10/10) - **Excelente** (funcionalidad crítica implementada, tests de integración completados, optimizaciones de GC/procesamiento, y arquitectura validada - v3.0.13)
+- **Nivel Core:** ⭐⭐⭐⭐⭐ (10/10) - **Excelente** (funcionalidad crítica implementada y tests de integración completados)
 - **Nivel Enterprise Avanzado:** ⭐⭐⭐ (7/10) - **Muy Bueno, mejorable**
 - **Nivel Ecosistema:** ⭐⭐ (4/10) - **Básico, necesita trabajo**
-- **Nivel Biblioteca NuGet:** ⭐⭐⭐⭐⭐ (10/10) - **Correctamente diseñado** (dependencias garantizadas, interfaces expuestas, arquitectura validada - v3.0.13)
+- **Nivel Biblioteca NuGet:** ⭐⭐⭐⭐⭐ (10/10) - **Correctamente diseñado**
 
 **Análisis de Compatibilidad como NuGet:**
 - ✅ **Diseño correcto:** No expone endpoints, expone interfaces
@@ -1281,7 +1265,7 @@ Este componente está **listo para uso enterprise interno** y puede competir con
   - ✅ Worker Services sin ASP.NET Core: Compatible con registros condicionales
   - ✅ Sin limitaciones - funciona en todos los escenarios
 
-**Puntuación Final Actualizada: 10.0/10** ⭐⭐⭐⭐⭐ (funcionalidad crítica implementada en v3.0.10, tests de integración completados en v3.0.11, optimizaciones de performance adicionales en v3.0.12, y optimizaciones de GC/procesamiento + arquitectura validada en v3.0.13)
+**Puntuación Final Actualizada: 10.0/10** ⭐⭐⭐⭐⭐ (funcionalidad crítica implementada en v3.0.10, tests de integración completados en v3.0.11, y optimizaciones de performance adicionales en v3.0.12)
 
 **Ajustes en Puntuación:**
 - **Funcionalidades:** 8.5/10 → 10/10 (logging automático MediatR implementado en v3.0.10, tests de integración en v3.0.11)
@@ -1293,9 +1277,9 @@ Este componente está **listo para uso enterprise interno** y puede competir con
 - **Performance/Batching:** 7/10 → 10/10 (batching inteligente, compresión, priorización implementados)
 - **Performance/.NET 10:** 9/10 → 10/10 (SemaphoreSlim, Random.Shared, FrozenSet, Source Generation JSON implementados en v3.0.0)
 - **Performance/Allocations:** 9/10 → 10/10 (DictionaryPool, CloneLogEntry optimizado, ToList eliminado - reducción 60-75% allocations)
-- **Puntuación Promedio:** 8.5/10 → **10.0/10** (v3.0.13 - Diciembre 2024) - Funcionalidad crítica implementada, tests de integración completados, optimizaciones de performance adicionales, arquitectura validada, y dependencias garantizadas
+- **Puntuación Promedio:** 8.5/10 → **10.0/10** (v3.0.12 - Diciembre 2024) - Funcionalidad crítica implementada, tests de integración completados, y optimizaciones de performance adicionales
 
-**Recomendación: ✅ APROBADO para producción - Nivel Enterprise - Top 1% del Mercado - Optimizado para .NET 10 - Performance Mejorado - Arquitectura Validada (v3.0.13)**
+**Recomendación: ✅ APROBADO para producción - Nivel Enterprise - Top 1% del Mercado - Optimizado para .NET 10 - Performance Mejorado (v3.0.12)**
 
 **Optimizaciones Críticas Implementadas (Diciembre 2024):**
 1. ✅ **DictionaryPool implementado** en todos los hot paths (COMPLETADO)
@@ -1355,14 +1339,11 @@ Este componente está **listo para uso enterprise interno** y puede competir con
   - ✅ **DictionaryPool implementado** en LogScopeManager.GetActiveScopeProperties() (reducción 60-70% allocations)
   - ✅ **Eliminado ToList() innecesario** en SendLogUseCase (100% menos allocations)
   - ✅ **Corrección de error** en StructuredLogEntry.ToJson() fallback
-  - ✅ **Impacto Total:** Reducción del **70-85%** en allocations totales (~1000-3000 bytes → ~150-300 bytes por log, mejorado desde 65-80%)
+  - ✅ **Impacto Total:** Reducción del **65-80%** en allocations totales (~1000-3000 bytes → ~200-350 bytes por log, mejorado desde 60-75%)
   - ✅ **Throughput mejorado:** 5K-25K → 8K-40K logs/segundo (con sanitization) - **~60% más throughput**
   - ✅ **LoggingBehaviour optimizado (v3.0.12):** DictionaryPool local + JsonSerializerOptions cacheado (reducción 60-70% allocations en hot path crítico)
   - ✅ **DataSanitizationService optimizado (v3.0.12):** Pre-allocación + eliminado ToList() (reducción 20-30% allocations adicionales)
   - ✅ **StructuredLoggingService optimizado (v3.0.12):** Pre-allocación en BeginScope (mejora 10-15% throughput)
-  - ✅ **Optimizaciones de GC y Procesamiento (v3.0.13):** GCOptimizationHelpers, TryAdd(), eliminación de LINQ en hot paths (reducción adicional 20-30% allocations)
-  - ✅ **Arquitectura validada (v3.0.13):** Clean Architecture 100% respetada, sin violaciones
-  - ✅ **Dependencias garantizadas (v3.0.13):** MediatR y ObjectPool como dependencias directas en NuGet
 
 **Nota sobre Compatibilidad:** El componente está correctamente diseñado como biblioteca NuGet y es **completamente compatible** con todos los tipos de aplicaciones .NET (Diciembre 2024). Todas las limitaciones anteriores han sido resueltas mediante:
 - ✅ Registros condicionales automáticos
@@ -1522,5 +1503,5 @@ Este componente está **listo para uso enterprise interno** y puede competir con
 
 **Nota:** Las optimizaciones críticas (DictionaryPool, CloneLogEntry optimizado, ToList eliminado, LoggingBehaviour optimizado, DataSanitizationService optimizado) ya han logrado una reducción del **65-80% en allocations totales** (v3.0.12). Las mejoras adicionales (Span<T>, ValueTask) podrían llevar la reducción total a ~70-85%, pero con esfuerzo creciente y beneficios decrecientes (ley de rendimientos decrecientes).
 
-**Estado Actual:** ✅ **Todas las optimizaciones de alta prioridad están implementadas (v3.0.13).** Se han agregado optimizaciones adicionales en hot paths críticos (LoggingBehaviour, DataSanitizationService, StructuredLoggingService) y optimizaciones de GC y procesamiento (GCOptimizationHelpers, eliminación de LINQ, TryAdd) que mejoran aún más el rendimiento. La arquitectura Clean Architecture ha sido validada al 100% sin violaciones. Las dependencias críticas (MediatR, ObjectPool) están garantizadas como dependencias directas en el paquete NuGet. Las mejoras restantes (Span<T>, ValueTask) son opcionales y dependen de los requisitos específicos de performance.
+**Estado Actual:** ✅ **Todas las optimizaciones de alta prioridad están implementadas (v3.0.12).** Se han agregado optimizaciones adicionales en hot paths críticos (LoggingBehaviour, DataSanitizationService, StructuredLoggingService) que mejoran aún más el rendimiento. Las mejoras restantes (Span<T>, ValueTask) son opcionales y dependen de los requisitos específicos de performance.
 

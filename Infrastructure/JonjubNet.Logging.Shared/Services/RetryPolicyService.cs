@@ -44,11 +44,8 @@ namespace JonjubNet.Logging.Shared.Services
                     InitialDelay = sinkConfig?.InitialDelay ?? defaultConfig.InitialDelay,
                     MaxDelay = sinkConfig?.MaxDelay ?? defaultConfig.MaxDelay,
                     BackoffMultiplier = sinkConfig?.BackoffMultiplier ?? defaultConfig.BackoffMultiplier,
-                    NonRetryableExceptions = config.NonRetryableExceptions
-                        .Select(typeName => Type.GetType(typeName))
-                        .Where(t => t != null)
-                        .Cast<Type>()
-                        .ToList()
+                    // OPTIMIZACIÓN: Eliminar ToList() - usar lista directamente sin LINQ intermedio
+                    NonRetryableExceptions = ParseNonRetryableExceptions(config.NonRetryableExceptions)
                 };
 
                 if (!policyConfig.Enabled || policyConfig.Strategy == RetryStrategy.NoRetry)
@@ -76,6 +73,21 @@ namespace JonjubNet.Logging.Shared.Services
                 "JitteredExponentialBackoff" => RetryStrategy.JitteredExponentialBackoff,
                 _ => RetryStrategy.ExponentialBackoff
             };
+        }
+
+        private static List<Type> ParseNonRetryableExceptions(List<string> typeNames)
+        {
+            // OPTIMIZACIÓN: Eliminar LINQ Select().Where().Cast().ToList() - usar foreach directo
+            var result = new List<Type>(typeNames.Count);
+            foreach (var typeName in typeNames)
+            {
+                var type = Type.GetType(typeName);
+                if (type != null)
+                {
+                    result.Add(type);
+                }
+            }
+            return result;
         }
 
         /// <summary>

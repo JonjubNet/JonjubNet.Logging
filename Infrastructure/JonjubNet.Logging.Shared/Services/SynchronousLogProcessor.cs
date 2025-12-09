@@ -37,6 +37,9 @@ namespace JonjubNet.Logging.Shared.Services
 
         private async Task ProcessLogsAsync(CancellationToken cancellationToken)
         {
+            // 🔍 LOGGING TEMPORAL DE DIAGNÓSTICO
+            _logger.LogInformation("🔵 [DIAG] SynchronousLogProcessor.ProcessLogsAsync() iniciado");
+
             var reader = _logQueue.Reader;
             var batch = new List<StructuredLogEntry>(100);
 
@@ -47,8 +50,11 @@ namespace JonjubNet.Logging.Shared.Services
                     // Recopilar logs en batch
                     while (batch.Count < 100 && await reader.WaitToReadAsync(cancellationToken))
                     {
+                        _logger.LogInformation("🔵 [DIAG] SynchronousLogProcessor: Esperando logs en cola...");
                         while (batch.Count < 100 && reader.TryRead(out var logEntry))
                         {
+                            _logger.LogInformation("✅ [DIAG] SynchronousLogProcessor: Log leído de cola - Message: {Message}, Timestamp: {Timestamp}", 
+                                logEntry.Message, logEntry.Timestamp);
                             batch.Add(logEntry);
                         }
                     }

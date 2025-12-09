@@ -51,29 +51,60 @@ namespace JonjubNet.Logging.Application.UseCases
         /// </summary>
         public async Task ExecuteAsync(StructuredLogEntry logEntry)
         {
+            // 🔍 LOGGING TEMPORAL DE DIAGNÓSTICO
+            _logger.LogInformation("🔵 [DIAG] SendLogUseCase.ExecuteAsync() llamado - Message: {Message}, Timestamp: {Timestamp}", 
+                logEntry.Message, logEntry.Timestamp);
+
             var configuration = _configurationManager.Current;
             
             if (!configuration.Enabled)
+            {
+                _logger.LogWarning("❌ [DIAG] Logging DESHABILITADO en SendLogUseCase - Mensaje descartado");
                 return;
+            }
+
+            _logger.LogInformation("✅ [DIAG] Logging habilitado, procesando logEntry...");
 
             try
             {
                 // 1. Aplicar filtrado
-                if (_logFilter != null && !_logFilter.ShouldLog(logEntry))
+                if (_logFilter != null)
                 {
-                    return; // Log filtrado, no enviar
+                    var shouldLog = _logFilter.ShouldLog(logEntry);
+                    _logger.LogInformation("🔵 [DIAG] LogFilter.ShouldLog() = {ShouldLog}", shouldLog);
+                    if (!shouldLog)
+                    {
+                        _logger.LogWarning("❌ [DIAG] Log FILTRADO por LogFilter - Mensaje descartado");
+                        return; // Log filtrado, no enviar
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("✅ [DIAG] No hay LogFilter configurado");
                 }
 
                 // 2. Aplicar sampling y rate limiting
-                if (_samplingService != null && !_samplingService.ShouldLog(logEntry))
+                if (_samplingService != null)
                 {
-                    return; // Log descartado por sampling/rate limiting
+                    var shouldLog = _samplingService.ShouldLog(logEntry);
+                    _logger.LogInformation("🔵 [DIAG] SamplingService.ShouldLog() = {ShouldLog}", shouldLog);
+                    if (!shouldLog)
+                    {
+                        _logger.LogWarning("❌ [DIAG] Log DESCARTADO por SamplingService - Mensaje descartado");
+                        return; // Log descartado por sampling/rate limiting
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("✅ [DIAG] No hay SamplingService configurado");
                 }
 
                 // 3. Sanitizar datos sensibles (solo si está habilitado)
+                _logger.LogInformation("🔵 [DIAG] Sanitizando logEntry...");
                 var sanitizedEntry = _sanitizationService != null 
                     ? _sanitizationService.Sanitize(logEntry) 
                     : logEntry;
+                _logger.LogInformation("✅ [DIAG] LogEntry sanitizado");
 
                 // OPTIMIZACIÓN: Detectar qué sinks necesitan JSON y serializar una sola vez
                 // Esto evita múltiples serializaciones del mismo logEntry
@@ -81,44 +112,69 @@ namespace JonjubNet.Logging.Application.UseCases
                 var jsonSinks = new List<string>();
                 
                 // Verificar qué sinks necesitan JSON (Console, etc.)
+                _logger.LogInformation("🔵 [DIAG] Verificando sinks disponibles...");
+                int totalSinks = 0;
+                int enabledSinks = 0;
                 foreach (var sink in _sinks)
                 {
-                    if (sink.IsEnabled && sink.Name == "Console")
+                    totalSinks++;
+                    _logger.LogInformation("  [DIAG] Sink: {Name}, Enabled: {Enabled}", sink.Name, sink.IsEnabled);
+                    if (sink.IsEnabled)
                     {
-                        needsJson = true;
-                        jsonSinks.Add(sink.Name);
+                        enabledSinks++;
+                        if (sink.Name == "Console")
+                        {
+                            needsJson = true;
+                            jsonSinks.Add(sink.Name);
+                        }
                     }
                 }
+                _logger.LogInformation("✅ [DIAG] Total sinks: {Total}, Habilitados: {Enabled}", totalSinks, enabledSinks);
 
                 // Serializar JSON una sola vez si se necesita (Kafka o sinks que lo requieren)
                 string? sharedJson = null;
                 if (needsJson)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Serializando JSON (necesario para Kafka o Console)...");
                     // Usar serialización optimizada con ArrayPool
                     sharedJson = JonjubNet.Logging.Domain.Common.JsonSerializationHelper.SerializeToJson(sanitizedEntry);
+                    _logger.LogInformation("✅ [DIAG] JSON serializado, longitud: {Length}", sharedJson?.Length ?? 0);
+                }
+                else
+                {
+                    _logger.LogInformation("✅ [DIAG] No se necesita JSON serializado");
                 }
 
                 // Enviar a Kafka si está habilitado (usar JSON compartido)
                 if (_kafkaProducer != null && _kafkaProducer.IsEnabled && configuration.KafkaProducer.Enabled && sharedJson != null)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Enviando a Kafka...");
                     try
                     {
                         await _kafkaProducer.SendAsync(sharedJson);
+                        _logger.LogInformation("✅ [DIAG] Mensaje enviado a Kafka exitosamente");
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error al enviar log a Kafka");
+                        _logger.LogError(ex, "❌ [DIAG] Error al enviar log a Kafka");
                     }
+                }
+                else
+                {
+                    _logger.LogInformation("⚠️ [DIAG] Kafka no disponible o deshabilitado - Producer: {HasProducer}, Enabled: {Enabled}, ConfigEnabled: {ConfigEnabled}, HasJson: {HasJson}",
+                        _kafkaProducer != null, _kafkaProducer?.IsEnabled ?? false, configuration.KafkaProducer.Enabled, sharedJson != null);
                 }
 
                 // OPTIMIZACIÓN: Asignar JSON pre-serializado al logEntry para que los sinks puedan reutilizarlo
                 if (sharedJson != null)
                 {
                     sanitizedEntry.PreSerializedJson = sharedJson;
+                    _logger.LogInformation("✅ [DIAG] PreSerializedJson asignado al logEntry");
                 }
 
                 // Enviar a todos los sinks habilitados en paralelo (usar entrada sanitizada con JSON compartido)
                 // OPTIMIZACIÓN: Usar pool de listas para evitar allocations
+                _logger.LogInformation("🔵 [DIAG] Preparando envío a {Count} sinks habilitados...", enabledSinks);
                 var sinkTasks = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.RentTaskList();
                 try
                 {
@@ -141,14 +197,21 @@ namespace JonjubNet.Logging.Application.UseCases
                     {
                         if (sink.IsEnabled)
                         {
+                            _logger.LogInformation("🔵 [DIAG] Agregando tarea para sink: {Name}", sink.Name);
                             sinkTasks.Add(SendToSinkWithResilienceAsync(sink, sanitizedEntry));
                         }
                     }
 
                     if (sinkTasks.Count > 0)
                     {
+                        _logger.LogInformation("🔵 [DIAG] Ejecutando {Count} tareas de sinks en paralelo...", sinkTasks.Count);
                         // Procesar sinks en paralelo para mejor throughput
                         await Task.WhenAll(sinkTasks);
+                        _logger.LogInformation("✅ [DIAG] Todas las tareas de sinks completadas");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("⚠️ [DIAG] No hay sinks habilitados para enviar");
                     }
                 }
                 finally
@@ -159,7 +222,7 @@ namespace JonjubNet.Logging.Application.UseCases
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al enviar log");
+                _logger.LogError(ex, "❌ [DIAG] Error al enviar log en SendLogUseCase.ExecuteAsync()");
             }
         }
 
@@ -170,29 +233,42 @@ namespace JonjubNet.Logging.Application.UseCases
         /// <param name="logEntry">Entrada de log (puede contener PreSerializedJson para optimización)</param>
         private async Task SendToSinkWithResilienceAsync(ILogSink sink, StructuredLogEntry logEntry)
         {
+            // 🔍 LOGGING TEMPORAL DE DIAGNÓSTICO
+            _logger.LogInformation("🔵 [DIAG] SendToSinkWithResilienceAsync() llamado - Sink: {SinkName}, Message: {Message}", 
+                sink.Name, logEntry.Message);
+
             var retryPolicy = _retryPolicyManager?.GetPolicy(sink.Name);
             var circuitBreaker = _circuitBreakerManager?.GetBreaker(sink.Name);
+
+            _logger.LogInformation("🔵 [DIAG] Resiliencia - RetryPolicy: {HasRetry}, CircuitBreaker: {HasBreaker}", 
+                retryPolicy != null, circuitBreaker != null);
 
             try
             {
                 // 1. Ejecutar con retry policy (si está disponible)
                 if (retryPolicy != null)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Ejecutando con RetryPolicy...");
                     await retryPolicy.ExecuteAsync(async () =>
                     {
                         // 2. Ejecutar con circuit breaker (si está disponible)
                         if (circuitBreaker != null)
                         {
+                            _logger.LogInformation("🔵 [DIAG] Ejecutando con CircuitBreaker...");
                             await circuitBreaker.ExecuteAsync(async () =>
                             {
+                                _logger.LogInformation("🔵 [DIAG] Llamando sink.SendAsync() - Sink: {SinkName}", sink.Name);
                                 await sink.SendAsync(logEntry);
+                                _logger.LogInformation("✅ [DIAG] sink.SendAsync() completado - Sink: {SinkName}", sink.Name);
                                 return Task.CompletedTask;
                             });
                         }
                         else
                         {
                             // Sin circuit breaker, ejecutar directamente
+                            _logger.LogInformation("🔵 [DIAG] Llamando sink.SendAsync() directamente (sin CircuitBreaker) - Sink: {SinkName}", sink.Name);
                             await sink.SendAsync(logEntry);
+                            _logger.LogInformation("✅ [DIAG] sink.SendAsync() completado - Sink: {SinkName}", sink.Name);
                         }
                         return Task.CompletedTask;
                     });
@@ -200,43 +276,50 @@ namespace JonjubNet.Logging.Application.UseCases
                 else if (circuitBreaker != null)
                 {
                     // Solo circuit breaker, sin retry
+                    _logger.LogInformation("🔵 [DIAG] Ejecutando solo con CircuitBreaker (sin RetryPolicy)...");
                     await circuitBreaker.ExecuteAsync(async () =>
                     {
+                        _logger.LogInformation("🔵 [DIAG] Llamando sink.SendAsync() - Sink: {SinkName}", sink.Name);
                         await sink.SendAsync(logEntry);
+                        _logger.LogInformation("✅ [DIAG] sink.SendAsync() completado - Sink: {SinkName}", sink.Name);
                         return Task.CompletedTask;
                     });
                 }
                 else
                 {
                     // Sin resiliencia, ejecutar directamente
+                    _logger.LogInformation("🔵 [DIAG] Llamando sink.SendAsync() directamente (sin resiliencia) - Sink: {SinkName}", sink.Name);
                     await sink.SendAsync(logEntry);
+                    _logger.LogInformation("✅ [DIAG] sink.SendAsync() completado exitosamente - Sink: {SinkName}", sink.Name);
                 }
             }
             catch (CircuitBreakerOpenException ex)
             {
                 // Circuit breaker está abierto - sink está caído
-                _logger.LogWarning("Sink {SinkName} está caído, circuit breaker abierto", sink.Name);
+                _logger.LogWarning("❌ [DIAG] Sink {SinkName} está caído, circuit breaker abierto", sink.Name);
                 
                 // Enviar a DLQ si está disponible
                 if (_deadLetterQueue != null)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Enviando a DeadLetterQueue...");
                     await _deadLetterQueue.EnqueueAsync(logEntry, sink.Name, "CircuitBreakerOpen", ex);
                 }
             }
             catch (RetryExhaustedException ex)
             {
                 // Se agotaron los reintentos
-                _logger.LogError(ex, "Se agotaron los reintentos para sink {SinkName}", sink.Name);
+                _logger.LogError(ex, "❌ [DIAG] Se agotaron los reintentos para sink {SinkName}", sink.Name);
                 
                 // Enviar a DLQ si está disponible
                 if (_deadLetterQueue != null)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Enviando a DeadLetterQueue...");
                     await _deadLetterQueue.EnqueueAsync(logEntry, sink.Name, "RetryExhausted", ex);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al enviar log al sink {SinkName}", sink.Name);
+                _logger.LogError(ex, "❌ [DIAG] Error al enviar log al sink {SinkName}", sink.Name);
                 
                 // Registrar fallo en circuit breaker
                 circuitBreaker?.RecordFailure();
@@ -244,6 +327,7 @@ namespace JonjubNet.Logging.Application.UseCases
                 // Enviar a DLQ si está disponible
                 if (_deadLetterQueue != null)
                 {
+                    _logger.LogInformation("🔵 [DIAG] Enviando a DeadLetterQueue...");
                     await _deadLetterQueue.EnqueueAsync(logEntry, sink.Name, ex.GetType().Name, ex);
                 }
             }

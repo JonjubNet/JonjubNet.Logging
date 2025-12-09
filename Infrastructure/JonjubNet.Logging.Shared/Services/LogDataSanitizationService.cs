@@ -19,9 +19,12 @@ namespace JonjubNet.Logging.Shared.Services
         public LogDataSanitizationService(IOptions<LoggingConfiguration> configuration)
         {
             _configuration = configuration.Value.DataSanitization;
-            _sensitivePatterns = _configuration.SensitivePatterns
-                .Select(pattern => new Regex(pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase))
-                .ToList();
+            // OPTIMIZACIÓN: Eliminar ToList() - usar lista directamente sin LINQ intermedio
+            _sensitivePatterns = new List<Regex>(_configuration.SensitivePatterns.Count);
+            foreach (var pattern in _configuration.SensitivePatterns)
+            {
+                _sensitivePatterns.Add(new Regex(pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase));
+            }
         }
 
         public StructuredLogEntry Sanitize(StructuredLogEntry logEntry)

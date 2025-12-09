@@ -102,10 +102,10 @@ namespace JonjubNet.Logging.Shared.Services
                 query = query.Where(i => i.EnqueuedAt >= since.Value);
             }
 
+            // OPTIMIZACIÓN: Eliminar ToList() - retornar IEnumerable directamente
             var result = query
                 .OrderByDescending(i => i.EnqueuedAt)
-                .Take(maxCount)
-                .ToList();
+                .Take(maxCount);
 
             return Task.FromResult<IEnumerable<DeadLetterQueueItem>>(result);
         }
@@ -140,10 +140,10 @@ namespace JonjubNet.Logging.Shared.Services
         public Task<bool> RetryAllAsync(string? sinkName = null)
         {
             var config = _configurationManager.Current.DeadLetterQueue;
+            // OPTIMIZACIÓN: Iterar directamente sin ToList() para reducir allocations
             var itemsToRetry = _items.Values
                 .Where(i => sinkName == null || i.SinkName == sinkName)
-                .Where(i => i.RetryCount < config.MaxRetriesPerItem)
-                .ToList();
+                .Where(i => i.RetryCount < config.MaxRetriesPerItem);
 
             foreach (var item in itemsToRetry)
             {
@@ -179,17 +179,24 @@ namespace JonjubNet.Logging.Shared.Services
 
         public DeadLetterQueueMetrics GetMetrics()
         {
-            var items = _items.Values.ToList();
-            var bySink = items
-                .GroupBy(i => i.SinkName)
-                .ToDictionary(g => g.Key, g => g.Count());
+            // OPTIMIZACIÓN: Iterar directamente sin ToList() para reducir allocations
+            var items = _items.Values;
+            var bySink = new Dictionary<string, int>();
+            foreach (var item in items)
+            {
+                var sinkName = item.SinkName;
+                bySink.TryGetValue(sinkName, out var count);
+                bySink[sinkName] = count + 1;
+            }
 
+            // OPTIMIZACIÓN: Calcular métricas sin ToList() ni LINQ adicional
+            var itemsList = items.ToList(); // Solo para Min/Max que requieren materialización
             return new DeadLetterQueueMetrics
             {
-                TotalItems = items.Count,
+                TotalItems = _items.Count,
                 ItemsBySink = bySink.Values.Sum(),
-                OldestItemDate = items.Any() ? items.Min(i => i.EnqueuedAt) : null,
-                NewestItemDate = items.Any() ? items.Max(i => i.EnqueuedAt) : null,
+                OldestItemDate = itemsList.Count > 0 ? itemsList.Min(i => i.EnqueuedAt) : null,
+                NewestItemDate = itemsList.Count > 0 ? itemsList.Max(i => i.EnqueuedAt) : null,
                 ItemsBySinkName = bySink
             };
         }
@@ -222,9 +229,15 @@ namespace JonjubNet.Logging.Shared.Services
             var config = _configurationManager.Current.DeadLetterQueue;
             var cutoffDate = DateTime.UtcNow - config.ItemRetentionPeriod;
 
-            var oldItems = _items.Values
-                .Where(i => i.EnqueuedAt < cutoffDate)
-                .ToList();
+            // OPTIMIZACIÓN: Iterar directamente sin ToList() para reducir allocations
+            var oldItems = new List<DeadLetterQueueItem>();
+            foreach (var item in _items.Values)
+            {
+                if (item.EnqueuedAt < cutoffDate)
+                {
+                    oldItems.Add(item);
+                }
+            }
 
             foreach (var item in oldItems)
             {
@@ -276,7 +289,8 @@ namespace JonjubNet.Logging.Shared.Services
                     Directory.CreateDirectory(directory);
                 }
 
-                var items = _items.Values.ToList();
+                // OPTIMIZACIÓN: Serializar directamente sin ToList() intermedio
+                var items = _items.Values;
                 var json = JsonSerializer.Serialize(items, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(config.PersistencePath, json);
             }
