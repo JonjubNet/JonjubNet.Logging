@@ -152,8 +152,10 @@ namespace JonjubNet.Logging.Shared.Services
                 item.LastRetryAt = DateTime.UtcNow;
             }
 
+            var count = itemsList.Count;
+            var sinkNameValue = sinkName ?? "todos";
             _logger?.LogInformation("Reintentando {Count} items de DLQ (sink: {SinkName})", 
-                itemsList.Count, sinkName ?? "todos");
+                count, sinkNameValue);
 
             return Task.FromResult(true);
         }

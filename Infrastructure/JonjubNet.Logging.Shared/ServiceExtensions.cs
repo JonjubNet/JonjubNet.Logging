@@ -45,18 +45,24 @@ namespace JonjubNet.Logging.Shared
             IConfiguration configuration)
             where TUserService : class, ICurrentUserService
         {
-            // ✅ PRIMERO: Registrar servicios de Application (UseCases)
-            // Debe registrarse ANTES de intentar resolverlos
-            System.Console.WriteLine("[DIAGNÓSTICO] AddSharedInfrastructure() iniciado - Llamando AddApplicationServices()...");
-            services.AddApplicationServices();
-            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
+            System.Console.WriteLine("[DIAGNÓSTICO] AddSharedInfrastructure() iniciado");
             
+            // ✅ PASO 1: Registrar configuración PRIMERO (necesaria para ILoggingConfigurationManager)
             // Registrar configuración con IOptionsMonitor para Hot-Reload
             services.Configure<LoggingConfiguration>(
                 configuration.GetSection(LoggingConfiguration.SectionName));
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ Configuración de LoggingConfiguration registrada");
             
+            // ✅ PASO 2: Registrar ILoggingConfigurationManager (necesario para UseCases)
             // Registrar ILoggingConfigurationManager para gestión dinámica
             services.AddSingleton<ILoggingConfigurationManager, LoggingConfigurationManager>();
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ ILoggingConfigurationManager registrado");
+            
+            // ✅ PASO 3: Registrar servicios de Application (UseCases)
+            // Ahora que ILoggingConfigurationManager está registrado, los UseCases pueden resolverlo
+            System.Console.WriteLine("[DIAGNÓSTICO] Llamando AddApplicationServices()...");
+            services.AddApplicationServices();
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
 
             // Registrar validadores de FluentValidation
             // Nota: Los validadores están en el namespace Shared.Configuration
@@ -125,11 +131,11 @@ namespace JonjubNet.Logging.Shared
             if (IsHostedServiceAvailable())
             {
                 // Registrar IntelligentLogProcessor con todas sus dependencias
-                // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
+                // SendLogUseCase es Scoped, por lo que usamos IServiceScopeFactory
                 services.AddHostedService<IntelligentLogProcessor>(sp =>
                 {
                     var logger = sp.GetRequiredService<ILogger<IntelligentLogProcessor>>();
-                    var sendUseCase = sp.GetRequiredService<SendLogUseCase>();
+                    var serviceScopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
                     var enrichUseCase = sp.GetRequiredService<EnrichLogEntryUseCase>();
                     var batchingService = sp.GetRequiredService<IIntelligentBatchingService>();
                     var compressionService = sp.GetRequiredService<IBatchCompressionService>();
@@ -137,7 +143,7 @@ namespace JonjubNet.Logging.Shared
                     var priorityQueue = sp.GetService<IPriorityLogQueue>();
                     var standardQueue = sp.GetService<LogQueue>();
                     return new IntelligentLogProcessor(
-                        logger, sendUseCase, enrichUseCase, batchingService, compressionService,
+                        logger, serviceScopeFactory, enrichUseCase, batchingService, compressionService,
                         configManager, priorityQueue, standardQueue);
                 });
             }
@@ -188,14 +194,11 @@ namespace JonjubNet.Logging.Shared
                     }
                     System.Console.WriteLine("[DIAGNÓSTICO]   ✅ EnrichLogEntryUseCase resuelto");
                     
-                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver SendLogUseCase...");
-                    var sendUseCase = sp.GetService<SendLogUseCase>();
-                    if (sendUseCase == null)
-                    {
-                        throw new InvalidOperationException(
-                            "SendLogUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructure.");
-                    }
-                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ SendLogUseCase resuelto");
+                    // SendLogUseCase es Scoped, no se puede resolver desde root provider
+                    // Usar IServiceScopeFactory en su lugar
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Obteniendo IServiceScopeFactory (SendLogUseCase es Scoped)...");
+                    var serviceScopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ IServiceScopeFactory resuelto");
                     
                     var sinks = sp.GetServices<ILogSink>();
                     System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ ILogSink resueltos: {sinks.Count()} sinks");
@@ -213,7 +216,7 @@ namespace JonjubNet.Logging.Shared
                     System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ IPriorityLogQueue: {(priorityQueue != null ? "disponible" : "null")}");
 
                     var structuredLoggingService = new StructuredLoggingService(
-                        loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
+                        loggerFactory, configManager, createUseCase, enrichUseCase, serviceScopeFactory,
                         sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
                     
                     System.Console.WriteLine("[DIAGNÓSTICO] ✅ IStructuredLoggingService instanciado exitosamente");
@@ -243,18 +246,24 @@ namespace JonjubNet.Logging.Shared
             IConfiguration configuration)
             where TUserService : class, ICurrentUserService
         {
-            // ✅ PRIMERO: Registrar servicios de Application (UseCases)
-            // Debe registrarse ANTES de intentar resolverlos
-            System.Console.WriteLine("[DIAGNÓSTICO] AddSharedInfrastructureWithoutHost() iniciado - Llamando AddApplicationServices()...");
-            services.AddApplicationServices();
-            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
+            System.Console.WriteLine("[DIAGNÓSTICO] AddSharedInfrastructureWithoutHost() iniciado");
             
+            // ✅ PASO 1: Registrar configuración PRIMERO (necesaria para ILoggingConfigurationManager)
             // Registrar configuración con IOptionsMonitor para Hot-Reload
             services.Configure<LoggingConfiguration>(
                 configuration.GetSection(LoggingConfiguration.SectionName));
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ Configuración de LoggingConfiguration registrada");
             
+            // ✅ PASO 2: Registrar ILoggingConfigurationManager (necesario para UseCases)
             // Registrar ILoggingConfigurationManager para gestión dinámica
             services.AddSingleton<ILoggingConfigurationManager, LoggingConfigurationManager>();
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ ILoggingConfigurationManager registrado");
+            
+            // ✅ PASO 3: Registrar servicios de Application (UseCases)
+            // Ahora que ILoggingConfigurationManager está registrado, los UseCases pueden resolverlo
+            System.Console.WriteLine("[DIAGNÓSTICO] Llamando AddApplicationServices()...");
+            services.AddApplicationServices();
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
 
             // Registrar IHttpContextAccessor e IHttpContextProvider (condicional - solo si ASP.NET Core está disponible)
             // Usar conditional compilation en lugar de reflection para AOT-friendly
@@ -304,14 +313,14 @@ namespace JonjubNet.Logging.Shared
             services.AddSingleton<ILogQueue>(sp => sp.GetRequiredService<LogQueue>());
 
             // Registrar SynchronousLogProcessor en lugar de BackgroundService
-            // Los UseCases ahora son Singleton, se pueden resolver directamente desde root provider
+            // SendLogUseCase es Scoped, por lo que usamos IServiceScopeFactory
             services.AddSingleton<SynchronousLogProcessor>(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<SynchronousLogProcessor>>();
                 var logQueue = sp.GetRequiredService<LogQueue>();
-                var sendLogUseCase = sp.GetRequiredService<SendLogUseCase>();
+                var serviceScopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
                 var enrichLogUseCase = sp.GetRequiredService<EnrichLogEntryUseCase>();
-                return new SynchronousLogProcessor(logger, logQueue, sendLogUseCase, enrichLogUseCase);
+                return new SynchronousLogProcessor(logger, logQueue, serviceScopeFactory, enrichLogUseCase);
             });
 
             // Registrar Health Check
@@ -360,14 +369,11 @@ namespace JonjubNet.Logging.Shared
                     }
                     System.Console.WriteLine("[DIAGNÓSTICO]   ✅ EnrichLogEntryUseCase resuelto");
                     
-                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Intentando resolver SendLogUseCase...");
-                    var sendUseCase = sp.GetService<SendLogUseCase>();
-                    if (sendUseCase == null)
-                    {
-                        throw new InvalidOperationException(
-                            "SendLogUseCase no está registrado. Asegúrate de que AddApplicationServices() se haya llamado antes de AddSharedInfrastructureWithoutHost.");
-                    }
-                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ SendLogUseCase resuelto");
+                    // SendLogUseCase es Scoped, no se puede resolver desde root provider
+                    // Usar IServiceScopeFactory en su lugar
+                    System.Console.WriteLine("[DIAGNÓSTICO]   🔵 Obteniendo IServiceScopeFactory (SendLogUseCase es Scoped)...");
+                    var serviceScopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+                    System.Console.WriteLine("[DIAGNÓSTICO]   ✅ IServiceScopeFactory resuelto");
                     
                     var sinks = sp.GetServices<ILogSink>();
                     System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ ILogSink resueltos: {sinks.Count()} sinks");
@@ -385,7 +391,7 @@ namespace JonjubNet.Logging.Shared
                     System.Console.WriteLine($"[DIAGNÓSTICO]   ✅ IPriorityLogQueue: {(priorityQueue != null ? "disponible" : "null")}");
 
                     var structuredLoggingService = new StructuredLoggingService(
-                        loggerFactory, configManager, createUseCase, enrichUseCase, sendUseCase,
+                        loggerFactory, configManager, createUseCase, enrichUseCase, serviceScopeFactory,
                         sinks, scopeManager, kafkaProducer, logQueue, priorityQueue);
                     
                     System.Console.WriteLine("[DIAGNÓSTICO] ✅ IStructuredLoggingService (WithoutHost) instanciado exitosamente");

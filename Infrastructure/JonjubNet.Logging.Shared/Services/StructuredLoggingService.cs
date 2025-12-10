@@ -3,6 +3,7 @@ using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Application.UseCases;
 using JonjubNet.Logging.Domain.Entities;
 using JonjubNet.Logging.Domain.ValueObjects;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace JonjubNet.Logging.Shared.Services
@@ -21,7 +22,7 @@ namespace JonjubNet.Logging.Shared.Services
         private readonly ILoggingConfigurationManager _configurationManager;
         private readonly CreateLogEntryUseCase _createLogEntryUseCase;
         private readonly EnrichLogEntryUseCase _enrichLogEntryUseCase;
-        private readonly SendLogUseCase _sendLogUseCase;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IEnumerable<ILogSink> _sinks;
         private readonly IKafkaProducer? _kafkaProducer;
         private readonly ILogScopeManager _scopeManager;
@@ -35,7 +36,7 @@ namespace JonjubNet.Logging.Shared.Services
         /// <param name="configurationManager">Gestor de configuración de logging.</param>
         /// <param name="createLogEntryUseCase">Caso de uso para crear entradas de log.</param>
         /// <param name="enrichLogEntryUseCase">Caso de uso para enriquecer entradas de log.</param>
-        /// <param name="sendLogUseCase">Caso de uso para enviar logs.</param>
+        /// <param name="serviceScopeFactory">Factory para crear scopes (necesario para resolver SendLogUseCase Scoped).</param>
         /// <param name="sinks">Colección de sinks de log.</param>
         /// <param name="scopeManager">Gestor de scopes de log.</param>
         /// <param name="kafkaProducer">Productor de Kafka opcional.</param>
@@ -46,7 +47,7 @@ namespace JonjubNet.Logging.Shared.Services
             ILoggingConfigurationManager configurationManager,
             CreateLogEntryUseCase createLogEntryUseCase,
             EnrichLogEntryUseCase enrichLogEntryUseCase,
-            SendLogUseCase sendLogUseCase,
+            IServiceScopeFactory serviceScopeFactory,
             IEnumerable<ILogSink> sinks,
             ILogScopeManager scopeManager,
             IKafkaProducer? kafkaProducer = null,
@@ -58,7 +59,7 @@ namespace JonjubNet.Logging.Shared.Services
             _configurationManager = configurationManager;
             _createLogEntryUseCase = createLogEntryUseCase;
             _enrichLogEntryUseCase = enrichLogEntryUseCase;
-            _sendLogUseCase = sendLogUseCase;
+            _serviceScopeFactory = serviceScopeFactory;
             _sinks = sinks;
             _scopeManager = scopeManager;
             _kafkaProducer = kafkaProducer;
@@ -156,12 +157,15 @@ namespace JonjubNet.Logging.Shared.Services
                     _logger.LogInformation("✅ [DIAG] LogEntry enriquecido completamente, enviando directamente...");
                     
                     // Usar Task.Run con manejo de errores mejorado
+                    // Crear un scope para resolver SendLogUseCase (Scoped)
                     var task = Task.Run(async () =>
                     {
+                        using var scope = _serviceScopeFactory.CreateScope();
                         try
                         {
                             _logger.LogInformation("🔵 [DIAG] Task.Run ejecutando SendLogUseCase.ExecuteAsync()...");
-                            await _sendLogUseCase.ExecuteAsync(fullyEnrichedEntry);
+                            var sendLogUseCase = scope.ServiceProvider.GetRequiredService<SendLogUseCase>();
+                            await sendLogUseCase.ExecuteAsync(fullyEnrichedEntry);
                             _logger.LogInformation("✅ [DIAG] SendLogUseCase.ExecuteAsync() completado");
                         }
                         catch (Exception ex)

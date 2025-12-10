@@ -1,6 +1,7 @@
 using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Application.UseCases;
 using JonjubNet.Logging.Domain.Entities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Threading.Channels;
 
@@ -14,7 +15,7 @@ namespace JonjubNet.Logging.Shared.Services
     {
         private readonly ILogger<SynchronousLogProcessor> _logger;
         private readonly LogQueue _logQueue;
-        private readonly SendLogUseCase _sendLogUseCase;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly EnrichLogEntryUseCase _enrichLogEntryUseCase;
         private readonly Task _processingTask;
         private readonly CancellationTokenSource _cancellationTokenSource;
@@ -22,12 +23,12 @@ namespace JonjubNet.Logging.Shared.Services
         public SynchronousLogProcessor(
             ILogger<SynchronousLogProcessor> logger,
             LogQueue logQueue,
-            SendLogUseCase sendLogUseCase,
+            IServiceScopeFactory serviceScopeFactory,
             EnrichLogEntryUseCase enrichLogEntryUseCase)
         {
             _logger = logger;
             _logQueue = logQueue;
-            _sendLogUseCase = sendLogUseCase;
+            _serviceScopeFactory = serviceScopeFactory;
             _enrichLogEntryUseCase = enrichLogEntryUseCase;
             _cancellationTokenSource = new CancellationTokenSource();
 
@@ -111,6 +112,10 @@ namespace JonjubNet.Logging.Shared.Services
                 }
 
                 // OPTIMIZACIÓN: Procesar en paralelo usando pool de listas
+                // Crear un scope para resolver SendLogUseCase (Scoped)
+                using var scope = _serviceScopeFactory.CreateScope();
+                var sendLogUseCase = scope.ServiceProvider.GetRequiredService<SendLogUseCase>();
+                
                 var tasks = JonjubNet.Logging.Domain.Common.GCOptimizationHelpers.RentTaskList();
                 try
                 {
@@ -122,7 +127,7 @@ namespace JonjubNet.Logging.Shared.Services
 
                     foreach (var logEntry in enrichedEntries)
                     {
-                        tasks.Add(_sendLogUseCase.ExecuteAsync(logEntry));
+                        tasks.Add(sendLogUseCase.ExecuteAsync(logEntry));
                     }
 
                     await Task.WhenAll(tasks);

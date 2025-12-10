@@ -55,10 +55,12 @@ namespace JonjubNet.Logging.Application
             });
             System.Console.WriteLine("[DIAGNÓSTICO] ✅ EnrichLogEntryUseCase registrado como Singleton (factory)");
 
-            // SendLogUseCase - Tiene múltiples dependencias opcionales
-            services.AddSingleton<UseCases.SendLogUseCase>(sp =>
+            // SendLogUseCase - Cambiar a Scoped para evitar problemas de resolución desde root provider
+            // NOTA: Los servicios que lo necesiten (como IntelligentLogProcessor) deben usar IServiceScopeFactory
+            // para crear un scope cuando lo necesiten
+            services.AddScoped<UseCases.SendLogUseCase>(sp =>
             {
-                System.Console.WriteLine("[DIAGNÓSTICO] 🔵 Resolviendo dependencias para SendLogUseCase...");
+                System.Console.WriteLine("[DIAGNÓSTICO] 🔵 Resolviendo dependencias para SendLogUseCase (Scoped)...");
                 try
                 {
                     var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<UseCases.SendLogUseCase>>();
@@ -96,7 +98,7 @@ namespace JonjubNet.Logging.Application
                         samplingService, sanitizationService, circuitBreakerManager,
                         retryPolicyManager, deadLetterQueue);
                     
-                    System.Console.WriteLine("[DIAGNÓSTICO] ✅ SendLogUseCase instanciado exitosamente");
+                    System.Console.WriteLine("[DIAGNÓSTICO] ✅ SendLogUseCase instanciado exitosamente (Scoped)");
                     return sendLogUseCase;
                 }
                 catch (Exception ex)
@@ -106,7 +108,7 @@ namespace JonjubNet.Logging.Application
                     throw;
                 }
             });
-            System.Console.WriteLine("[DIAGNÓSTICO] ✅ SendLogUseCase registrado como Singleton (factory)");
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ SendLogUseCase registrado como Scoped");
             System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado - Todos los UseCases registrados");
 
             // Registrar servicios de Application usando reflexión

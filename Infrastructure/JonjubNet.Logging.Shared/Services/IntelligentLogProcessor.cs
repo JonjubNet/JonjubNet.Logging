@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Application.UseCases;
 using JonjubNet.Logging.Domain.Entities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -15,7 +16,7 @@ namespace JonjubNet.Logging.Shared.Services
         private readonly ILogger<IntelligentLogProcessor> _logger;
         private readonly IPriorityLogQueue? _priorityQueue;
         private readonly LogQueue? _standardQueue;
-        private readonly SendLogUseCase _sendLogUseCase;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly EnrichLogEntryUseCase _enrichLogEntryUseCase;
         private readonly IIntelligentBatchingService _batchingService;
         private readonly IBatchCompressionService _compressionService;
@@ -24,7 +25,7 @@ namespace JonjubNet.Logging.Shared.Services
 
         public IntelligentLogProcessor(
             ILogger<IntelligentLogProcessor> logger,
-            SendLogUseCase sendLogUseCase,
+            IServiceScopeFactory serviceScopeFactory,
             EnrichLogEntryUseCase enrichLogEntryUseCase,
             IIntelligentBatchingService batchingService,
             IBatchCompressionService compressionService,
@@ -33,7 +34,7 @@ namespace JonjubNet.Logging.Shared.Services
             LogQueue? standardQueue = null)
         {
             _logger = logger;
-            _sendLogUseCase = sendLogUseCase;
+            _serviceScopeFactory = serviceScopeFactory;
             _enrichLogEntryUseCase = enrichLogEntryUseCase;
             _batchingService = batchingService;
             _compressionService = compressionService;
@@ -294,9 +295,12 @@ namespace JonjubNet.Logging.Shared.Services
 
             await Parallel.ForEachAsync(logEntries, parallelOptions, async (logEntry, ct) =>
             {
+                // Crear un scope para resolver SendLogUseCase (Scoped)
+                using var scope = _serviceScopeFactory.CreateScope();
                 try
                 {
-                    await _sendLogUseCase.ExecuteAsync(logEntry);
+                    var sendLogUseCase = scope.ServiceProvider.GetRequiredService<SendLogUseCase>();
+                    await sendLogUseCase.ExecuteAsync(logEntry);
                 }
                 catch (Exception ex)
                 {
