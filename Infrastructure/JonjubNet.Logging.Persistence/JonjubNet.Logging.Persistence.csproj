@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj" />
+    <ProjectReference Include="..\..\core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj" />
   </ItemGroup>
 
 </Project>

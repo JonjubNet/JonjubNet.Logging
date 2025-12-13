@@ -59,9 +59,12 @@ namespace JonjubNet.Logging.Domain.Common
                     _processIdCache[processId] = result;
                     
                     // Limitar tamaño del cache para evitar memory leaks
+                    // Para ProcessId (relativamente estables), limpiar todo cuando excede es eficiente
                     if (_processIdCache.Count > 1000)
                     {
                         _processIdCache.Clear();
+                        // Re-agregar el valor actual para mantenerlo en cache
+                        _processIdCache[processId] = result;
                     }
                 }
                 return result;
@@ -81,9 +84,12 @@ namespace JonjubNet.Logging.Domain.Common
                     _threadIdCache[threadId] = result;
                     
                     // Limitar tamaño del cache para evitar memory leaks
+                    // Para ThreadId (relativamente estables), limpiar todo cuando excede es eficiente
                     if (_threadIdCache.Count > 1000)
                     {
                         _threadIdCache.Clear();
+                        // Re-agregar el valor actual para mantenerlo en cache
+                        _threadIdCache[threadId] = result;
                     }
                 }
                 return result;

@@ -14,6 +14,7 @@ namespace JonjubNet.Logging.Shared.Services.Sinks
     {
         private readonly ILoggingConfigurationManager _configurationManager;
         private readonly ILogger<SerilogSink> _logger;
+        private readonly IEncryptionService? _encryptionService;
 
         public bool IsEnabled
         {
@@ -32,10 +33,12 @@ namespace JonjubNet.Logging.Shared.Services.Sinks
 
         public SerilogSink(
             ILoggingConfigurationManager configurationManager,
-            ILogger<SerilogSink> logger)
+            ILogger<SerilogSink> logger,
+            IEncryptionService? encryptionService = null)
         {
             _configurationManager = configurationManager;
             _logger = logger;
+            _encryptionService = encryptionService;
         }
 
         public Task SendAsync(StructuredLogEntry logEntry)

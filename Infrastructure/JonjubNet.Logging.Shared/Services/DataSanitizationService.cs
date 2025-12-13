@@ -1,7 +1,7 @@
 using JonjubNet.Logging.Application.Configuration;
 using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Domain.Entities;
-using JonjubNet.Logging.Shared.Common;
+using JonjubNet.Logging.Domain.Common;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 

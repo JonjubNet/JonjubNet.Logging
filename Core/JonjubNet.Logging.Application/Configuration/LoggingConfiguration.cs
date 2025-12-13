@@ -78,6 +78,11 @@ namespace JonjubNet.Logging.Application.Configuration
         /// Configuración de Batching Inteligente
         /// </summary>
         public LoggingBatchingConfiguration Batching { get; set; } = new();
+
+        /// <summary>
+        /// Configuración de Seguridad Avanzada
+        /// </summary>
+        public LoggingSecurityConfiguration Security { get; set; } = new();
     }
 
     /// <summary>
@@ -624,6 +629,155 @@ namespace JonjubNet.Logging.Application.Configuration
         /// Intervalo de procesamiento para logs normales (en milisegundos)
         /// </summary>
         public int NormalProcessingIntervalMs { get; set; } = 1000;
+    }
+
+    /// <summary>
+    /// Configuración de Seguridad Avanzada
+    /// </summary>
+    public class LoggingSecurityConfiguration
+    {
+        /// <summary>
+        /// Configuración de encriptación en tránsito (TLS/SSL para sinks HTTP)
+        /// </summary>
+        public LoggingEncryptionInTransitConfiguration EncryptionInTransit { get; set; } = new();
+
+        /// <summary>
+        /// Configuración de encriptación en reposo (para file sink)
+        /// </summary>
+        public LoggingEncryptionAtRestConfiguration EncryptionAtRest { get; set; } = new();
+
+        /// <summary>
+        /// Configuración de audit logging del componente
+        /// </summary>
+        public LoggingAuditConfiguration Audit { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Configuración de encriptación en tránsito
+    /// </summary>
+    public class LoggingEncryptionInTransitConfiguration
+    {
+        /// <summary>
+        /// Habilitar/deshabilitar encriptación en tránsito
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// Forzar uso de TLS/SSL (rechazar conexiones no seguras)
+        /// </summary>
+        public bool RequireTls { get; set; } = true;
+
+        /// <summary>
+        /// Versión mínima de TLS permitida (1.0, 1.1, 1.2, 1.3)
+        /// </summary>
+        public string MinimumTlsVersion { get; set; } = "1.2";
+
+        /// <summary>
+        /// Ruta al certificado cliente (si se requiere autenticación mutua)
+        /// </summary>
+        public string? ClientCertificatePath { get; set; }
+
+        /// <summary>
+        /// Contraseña del certificado cliente (si está protegido)
+        /// </summary>
+        public string? ClientCertificatePassword { get; set; }
+
+        /// <summary>
+        /// Validar certificado del servidor (true = validar, false = aceptar cualquier certificado)
+        /// </summary>
+        public bool ValidateServerCertificate { get; set; } = true;
+
+        /// <summary>
+        /// Ruta al archivo de certificados raíz personalizados (opcional)
+        /// </summary>
+        public string? CustomRootCertificatesPath { get; set; }
+    }
+
+    /// <summary>
+    /// Configuración de encriptación en reposo
+    /// </summary>
+    public class LoggingEncryptionAtRestConfiguration
+    {
+        /// <summary>
+        /// Habilitar/deshabilitar encriptación en reposo
+        /// </summary>
+        public bool Enabled { get; set; } = false;
+
+        /// <summary>
+        /// Algoritmo de encriptación (AES256, AES128)
+        /// </summary>
+        public string EncryptionAlgorithm { get; set; } = "AES256";
+
+        /// <summary>
+        /// Ruta al archivo de clave de encriptación
+        /// </summary>
+        public string? EncryptionKeyPath { get; set; }
+
+        /// <summary>
+        /// Contraseña para desbloquear la clave de encriptación
+        /// </summary>
+        public string? EncryptionKeyPassword { get; set; }
+
+        /// <summary>
+        /// Habilitar rotación automática de claves
+        /// </summary>
+        public bool EnableKeyRotation { get; set; } = false;
+
+        /// <summary>
+        /// Intervalo de rotación de claves (días)
+        /// </summary>
+        public int KeyRotationIntervalDays { get; set; } = 90;
+
+        /// <summary>
+        /// Ruta donde se almacenan las claves anteriores (para descifrado de logs antiguos)
+        /// </summary>
+        public string? PreviousKeysPath { get; set; }
+    }
+
+    /// <summary>
+    /// Configuración de audit logging
+    /// </summary>
+    public class LoggingAuditConfiguration
+    {
+        /// <summary>
+        /// Habilitar/deshabilitar audit logging
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// Registrar cambios de configuración
+        /// </summary>
+        public bool LogConfigurationChanges { get; set; } = true;
+
+        /// <summary>
+        /// Registrar accesos a logs sensibles
+        /// </summary>
+        public bool LogSensitiveAccess { get; set; } = true;
+
+        /// <summary>
+        /// Categorías consideradas sensibles (siempre se auditan)
+        /// </summary>
+        public List<string> SensitiveCategories { get; set; } = new() { "Security", "Audit" };
+
+        /// <summary>
+        /// Niveles considerados sensibles (siempre se auditan)
+        /// </summary>
+        public List<string> SensitiveLevels { get; set; } = new() { "Error", "Critical" };
+
+        /// <summary>
+        /// Habilitar compliance tracking (rastreo de cumplimiento)
+        /// </summary>
+        public bool EnableComplianceTracking { get; set; } = false;
+
+        /// <summary>
+        /// Estándares de cumplimiento a rastrear (GDPR, HIPAA, PCI-DSS, etc.)
+        /// </summary>
+        public List<string> ComplianceStandards { get; set; } = new();
+
+        /// <summary>
+        /// Ruta donde se almacenan los logs de auditoría (si es diferente del sink principal)
+        /// </summary>
+        public string? AuditLogPath { get; set; }
     }
 }
 

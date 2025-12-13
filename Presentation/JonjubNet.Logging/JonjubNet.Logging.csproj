@@ -66,18 +66,18 @@
   <ItemGroup>
     <!-- Referencias a proyectos internos - NO crear dependencias de paquete NuGet -->
     <!-- PrivateAssets: All evita que se creen dependencias de paquete para proyectos internos -->
-    <ProjectReference Include="..\..\Core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj">
+    <ProjectReference Include="..\..\core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj">
       <!-- PrivateAssets: All evita que se creen dependencias de paquete NuGet para proyectos internos -->
       <!-- NO usar CopyLocal=true para evitar duplicación innecesaria en Docker -->
       <!-- El Target IncludeReferencedAssembliesInPackage buscará las DLLs directamente desde los proyectos -->
       <PrivateAssets>All</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
-    <ProjectReference Include="..\..\Core\JonjubNet.Logging.Domain\JonjubNet.Logging.Domain.csproj">
+    <ProjectReference Include="..\..\core\JonjubNet.Logging.Domain\JonjubNet.Logging.Domain.csproj">
       <PrivateAssets>All</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
-    <ProjectReference Include="..\..\Infrastructure\JonjubNet.Logging.Shared\JonjubNet.Logging.Shared.csproj">
+    <ProjectReference Include="..\..\infrastructure\JonjubNet.Logging.Shared\JonjubNet.Logging.Shared.csproj">
       <PrivateAssets>All</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </ProjectReference>
@@ -101,16 +101,16 @@
     
     <!-- Si no se encontraron en _ResolvedProjectReferencePaths, buscar en las rutas de salida conocidas -->
     <PropertyGroup Condition="'@(_ApplicationDll)' == ''">
-      <_ApplicationDllPath>$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Application\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Application.dll</_ApplicationDllPath>
-      <_ApplicationDllPath Condition="!Exists('$(_ApplicationDllPath)')">$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Application\bin\$(Configuration)\net10.0\JonjubNet.Logging.Application.dll</_ApplicationDllPath>
+      <_ApplicationDllPath>$(MSBuildProjectDirectory)\..\..\core\JonjubNet.Logging.Application\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Application.dll</_ApplicationDllPath>
+      <_ApplicationDllPath Condition="!Exists('$(_ApplicationDllPath)')">$(MSBuildProjectDirectory)\..\..\core\JonjubNet.Logging.Application\bin\$(Configuration)\net10.0\JonjubNet.Logging.Application.dll</_ApplicationDllPath>
     </PropertyGroup>
     <PropertyGroup Condition="'@(_DomainDll)' == ''">
-      <_DomainDllPath>$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Domain\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Domain.dll</_DomainDllPath>
-      <_DomainDllPath Condition="!Exists('$(_DomainDllPath)')">$(MSBuildProjectDirectory)\..\..\Core\JonjubNet.Logging.Domain\bin\$(Configuration)\net10.0\JonjubNet.Logging.Domain.dll</_DomainDllPath>
+      <_DomainDllPath>$(MSBuildProjectDirectory)\..\..\core\JonjubNet.Logging.Domain\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Domain.dll</_DomainDllPath>
+      <_DomainDllPath Condition="!Exists('$(_DomainDllPath)')">$(MSBuildProjectDirectory)\..\..\core\JonjubNet.Logging.Domain\bin\$(Configuration)\net10.0\JonjubNet.Logging.Domain.dll</_DomainDllPath>
     </PropertyGroup>
     <PropertyGroup Condition="'@(_SharedDll)' == ''">
-      <_SharedDllPath>$(MSBuildProjectDirectory)\..\..\Infrastructure\JonjubNet.Logging.Shared\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Shared.dll</_SharedDllPath>
-      <_SharedDllPath Condition="!Exists('$(_SharedDllPath)')">$(MSBuildProjectDirectory)\..\..\Infrastructure\JonjubNet.Logging.Shared\bin\$(Configuration)\net10.0\JonjubNet.Logging.Shared.dll</_SharedDllPath>
+      <_SharedDllPath>$(MSBuildProjectDirectory)\..\..\infrastructure\JonjubNet.Logging.Shared\bin\$(Configuration)\$(TargetFramework)\JonjubNet.Logging.Shared.dll</_SharedDllPath>
+      <_SharedDllPath Condition="!Exists('$(_SharedDllPath)')">$(MSBuildProjectDirectory)\..\..\infrastructure\JonjubNet.Logging.Shared\bin\$(Configuration)\net10.0\JonjubNet.Logging.Shared.dll</_SharedDllPath>
     </PropertyGroup>
     
     <!-- Incluir las DLLs encontradas en el paquete -->

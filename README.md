@@ -1248,19 +1248,19 @@ Este componente está implementado siguiendo **Clean Architecture** con las sigu
 
 ```
 JonjubNet.Logging/
-├── Core/
+├── core/
 │   ├── Domain/              # Entidades y Value Objects
 │   └── Application/         # Interfaces y Casos de Uso
-├── Infrastructure/
+├── infrastructure/
 │   ├── Shared/              # Implementaciones compartidas
 │   └── Persistence/         # Persistencia (si aplica)
-└── Presentation/
+└── presentation/
     └── JonjubNet.Logging/   # Punto de entrada y extensión
 ```
 
 ### Principios Aplicados
 
-- **Dependency Rule**: Las dependencias apuntan hacia adentro (Infrastructure → Application → Domain)
+- **Dependency Rule**: Las dependencias apuntan hacia adentro (infrastructure → Application → Domain)
 - **Independencia de Frameworks**: La capa Application no depende de ASP.NET Core
 - **Testabilidad**: Todas las dependencias están abstraídas mediante interfaces
 - **Separación de Responsabilidades**: Cada capa tiene una responsabilidad clara
@@ -1385,7 +1385,6 @@ JonjubNet.Logging/
 ## 📖 Documentación Adicional
 
 - [Mejores Prácticas de Documentación](MEJORES_PRACTICAS_DOCUMENTACION.md) - Guía de mejores prácticas
-- [Evaluación de Producción](EVALUACION_PRODUCCION.md) - Análisis técnico y roadmap
 
 ## 🤝 Contribuir
 

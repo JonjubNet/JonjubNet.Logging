@@ -230,6 +230,26 @@ namespace JonjubNet.Logging.Shared
                 }
             });
 
+            // Registrar IAuditLoggingService después de IStructuredLoggingService (lo necesita)
+            services.AddSingleton<IAuditLoggingService>(sp =>
+            {
+                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                var loggingService = sp.GetRequiredService<IStructuredLoggingService>();
+                var logger = sp.GetService<ILogger<AuditLoggingService>>();
+                return new AuditLoggingService(configManager, loggingService, logger);
+            });
+
+            // Actualizar LoggingConfigurationManager para usar IAuditLoggingService
+            // Necesitamos re-registrarlo con la dependencia de IAuditLoggingService
+            services.Remove(services.FirstOrDefault(s => s.ServiceType == typeof(ILoggingConfigurationManager)));
+            services.AddSingleton<ILoggingConfigurationManager>(sp =>
+            {
+                var optionsMonitor = sp.GetRequiredService<IOptionsMonitor<LoggingConfiguration>>();
+                var logger = sp.GetRequiredService<ILogger<LoggingConfigurationManager>>();
+                var auditService = sp.GetService<IAuditLoggingService>();
+                return new LoggingConfigurationManager(optionsMonitor, logger, auditService);
+            });
+
             return services;
         }
 
@@ -298,6 +318,10 @@ namespace JonjubNet.Logging.Shared
             // NOTA: Debe ser Singleton porque SendLogUseCase (Singleton) lo necesita
             services.AddSingleton<IDataSanitizationService, DataSanitizationService>();
 
+            // Registrar servicios de seguridad avanzada
+            services.AddSingleton<IEncryptionService, EncryptionService>();
+            // IAuditLoggingService se registrará después de IStructuredLoggingService (lo necesita)
+
             // Registrar servicios de resiliencia
             services.AddSingleton<ICircuitBreakerManager>(sp =>
             {
@@ -334,7 +358,13 @@ namespace JonjubNet.Logging.Shared
             // Registrar SerilogSink (condicional - solo si Serilog está disponible)
             if (IsSerilogAvailable())
             {
-                services.AddSingleton<ILogSink, SerilogSink>();
+                services.AddSingleton<ILogSink>(sp =>
+                {
+                    var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                    var logger = sp.GetRequiredService<ILogger<SerilogSink>>();
+                    var encryptionService = sp.GetService<IEncryptionService>();
+                    return new SerilogSink(configManager, logger, encryptionService);
+                });
             }
 
             // Registrar IStructuredLoggingService (inyectar LogQueue)
@@ -403,6 +433,25 @@ namespace JonjubNet.Logging.Shared
                     System.Console.WriteLine($"[DIAGNÓSTICO] StackTrace: {ex.StackTrace}");
                     throw;
                 }
+            });
+
+            // Registrar IAuditLoggingService después de IStructuredLoggingService (lo necesita)
+            services.AddSingleton<IAuditLoggingService>(sp =>
+            {
+                var configManager = sp.GetRequiredService<ILoggingConfigurationManager>();
+                var loggingService = sp.GetRequiredService<IStructuredLoggingService>();
+                var logger = sp.GetService<ILogger<AuditLoggingService>>();
+                return new AuditLoggingService(configManager, loggingService, logger);
+            });
+
+            // Actualizar LoggingConfigurationManager para usar IAuditLoggingService
+            services.Remove(services.FirstOrDefault(s => s.ServiceType == typeof(ILoggingConfigurationManager)));
+            services.AddSingleton<ILoggingConfigurationManager>(sp =>
+            {
+                var optionsMonitor = sp.GetRequiredService<IOptionsMonitor<LoggingConfiguration>>();
+                var logger = sp.GetRequiredService<ILogger<LoggingConfigurationManager>>();
+                var auditService = sp.GetService<IAuditLoggingService>();
+                return new LoggingConfigurationManager(optionsMonitor, logger, auditService);
             });
 
             // ✅ Registrar Pipeline Behaviors de logging automático para MediatR

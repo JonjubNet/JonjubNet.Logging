@@ -1,22 +1,24 @@
 <Solution>
   <Folder Name="/src/" />
-  <Folder Name="/src/Core/">
-    <Project Path="Core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj" />
-    <Project Path="Core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj" />
+  <Folder Name="/src/core/">
+    <Project Path="core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj" />
+    <Project Path="core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj" />
   </Folder>
-  <Folder Name="/src/Infrastructure/">
-    <Project Path="Infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj" />
-    <Project Path="Infrastructure/JonjubNet.Logging.Persistence/JonjubNet.Logging.Persistence.csproj" />
+  <Folder Name="/src/infrastructure/">
+    <Project Path="infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj" />
+    <Project Path="infrastructure/JonjubNet.Logging.Persistence/JonjubNet.Logging.Persistence.csproj" />
   </Folder>
-  <Folder Name="/src/Presentation/">
-    <Project Path="Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj" />
+  <Folder Name="/src/presentation/">
+    <Project Path="presentation/JonjubNet.Logging/JonjubNet.Logging.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
-  <Folder Name="/tests/Core/">
-    <Project Path="Tests/JonjubNet.Logging.Domain.Tests/JonjubNet.Logging.Domain.Tests.csproj" />
-    <Project Path="Tests/JonjubNet.Logging.Application.Tests/JonjubNet.Logging.Application.Tests.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/JonjubNet.Logging.Performance.Tests/JonjubNet.Logging.Performance.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/Infrastructure/">
-    <Project Path="Tests/JonjubNet.Logging.Shared.Tests/JonjubNet.Logging.Shared.Tests.csproj" />
+  <Folder Name="/tests/core/">
+    <Project Path="tests/JonjubNet.Logging.Domain.Tests/JonjubNet.Logging.Domain.Tests.csproj" />
+    <Project Path="tests/JonjubNet.Logging.Application.Tests/JonjubNet.Logging.Application.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/infrastructure/">
+    <Project Path="tests/JonjubNet.Logging.Shared.Tests/JonjubNet.Logging.Shared.Tests.csproj" />
   </Folder>
 </Solution>

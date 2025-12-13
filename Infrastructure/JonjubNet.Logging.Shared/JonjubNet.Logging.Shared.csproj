@@ -30,8 +30,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj" />
-    <ProjectReference Include="..\..\Core\JonjubNet.Logging.Domain\JonjubNet.Logging.Domain.csproj" />
+    <ProjectReference Include="..\..\core\JonjubNet.Logging.Application\JonjubNet.Logging.Application.csproj" />
+    <ProjectReference Include="..\..\core\JonjubNet.Logging.Domain\JonjubNet.Logging.Domain.csproj" />
   </ItemGroup>
 
 </Project>

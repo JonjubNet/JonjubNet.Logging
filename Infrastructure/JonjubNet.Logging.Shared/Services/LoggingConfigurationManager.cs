@@ -15,9 +15,10 @@ namespace JonjubNet.Logging.Shared.Services
     {
         private readonly IOptionsMonitor<LoggingConfiguration> _optionsMonitor;
         private readonly ILogger<LoggingConfigurationManager> _logger;
+        private readonly IAuditLoggingService? _auditLoggingService;
         private LoggingConfiguration _currentConfiguration;
         private readonly IDisposable? _changeListener;
-        private readonly object _lock = new();
+        private readonly ReaderWriterLockSlim _lock = new();
         private readonly ConcurrentDictionary<string, TemporaryLogLevelOverride> _temporaryOverrides = new();
         private Timer? _expirationTimer;
 
@@ -38,9 +39,14 @@ namespace JonjubNet.Logging.Shared.Services
         {
             get
             {
-                lock (_lock)
+                _lock.EnterReadLock();
+                try
                 {
                     return _currentConfiguration;
+                }
+                finally
+                {
+                    _lock.ExitReadLock();
                 }
             }
         }
@@ -49,20 +55,27 @@ namespace JonjubNet.Logging.Shared.Services
 
         public LoggingConfigurationManager(
             IOptionsMonitor<LoggingConfiguration> optionsMonitor,
-            ILogger<LoggingConfigurationManager> logger)
+            ILogger<LoggingConfigurationManager> logger,
+            IAuditLoggingService? auditLoggingService = null)
         {
             _optionsMonitor = optionsMonitor;
             _logger = logger;
+            _auditLoggingService = auditLoggingService;
             _currentConfiguration = _optionsMonitor.CurrentValue;
 
             // Suscribirse a cambios automáticos desde appsettings.json
             _changeListener = _optionsMonitor.OnChange(config =>
             {
-                lock (_lock)
+                _lock.EnterWriteLock();
+                try
                 {
                     _currentConfiguration = config;
                     _logger.LogInformation("Configuración de logging actualizada automáticamente desde appsettings.json");
                     OnConfigurationChanged(config);
+                }
+                finally
+                {
+                    _lock.ExitWriteLock();
                 }
             });
 
@@ -82,12 +95,27 @@ namespace JonjubNet.Logging.Shared.Services
                 return false;
             }
 
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
+                var oldValue = _currentConfiguration.MinimumLevel;
                 _currentConfiguration.MinimumLevel = minimumLevel;
                 _logger.LogInformation("Nivel mínimo de log cambiado a: {Level}", minimumLevel);
+                
+                // Audit logging
+                _auditLoggingService?.LogConfigurationChangeAsync(
+                    "Updated",
+                    "MinimumLevel",
+                    oldValue,
+                    minimumLevel
+                ).ConfigureAwait(false);
+                
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
             }
         }
 
@@ -96,7 +124,8 @@ namespace JonjubNet.Logging.Shared.Services
             if (string.IsNullOrWhiteSpace(sinkName))
                 return false;
 
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 var sinkNameLower = sinkName.ToLowerInvariant();
                 switch (sinkNameLower)
@@ -119,8 +148,21 @@ namespace JonjubNet.Logging.Shared.Services
                 }
 
                 _logger.LogInformation("Sink {SinkName} {Status}", sinkName, enabled ? "habilitado" : "deshabilitado");
+                
+                // Audit logging
+                _auditLoggingService?.LogConfigurationChangeAsync(
+                    enabled ? "Enabled" : "Disabled",
+                    $"Sinks.{sinkName}",
+                    !enabled,
+                    enabled
+                ).ConfigureAwait(false);
+                
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
             }
         }
 
@@ -135,7 +177,8 @@ namespace JonjubNet.Logging.Shared.Services
                 return false;
             }
 
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 if (_currentConfiguration.Sampling.SamplingRates == null)
                 {
@@ -147,16 +190,25 @@ namespace JonjubNet.Logging.Shared.Services
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
             }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
         }
 
         public bool SetSamplingEnabled(bool enabled)
         {
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 _currentConfiguration.Sampling.Enabled = enabled;
                 _logger.LogInformation("Sampling {Status}", enabled ? "habilitado" : "deshabilitado");
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
             }
         }
 
@@ -171,7 +223,8 @@ namespace JonjubNet.Logging.Shared.Services
                 return false;
             }
 
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 if (_currentConfiguration.Sampling.MaxLogsPerMinute == null)
                 {
@@ -192,16 +245,25 @@ namespace JonjubNet.Logging.Shared.Services
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
             }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
         }
 
         public bool SetLoggingEnabled(bool enabled)
         {
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 _currentConfiguration.Enabled = enabled;
                 _logger.LogInformation("Logging {Status}", enabled ? "habilitado" : "deshabilitado");
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
             }
         }
 
@@ -217,7 +279,8 @@ namespace JonjubNet.Logging.Shared.Services
                 return false;
             }
 
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 if (_currentConfiguration.Filters.CategoryLogLevels == null)
                 {
@@ -228,6 +291,10 @@ namespace JonjubNet.Logging.Shared.Services
                 _logger.LogInformation("Nivel de log para categoría {Category} cambiado a: {Level}", category, level);
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
             }
         }
 
@@ -243,7 +310,8 @@ namespace JonjubNet.Logging.Shared.Services
                 return false;
             }
 
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 if (_currentConfiguration.Filters.OperationLogLevels == null)
                 {
@@ -254,6 +322,10 @@ namespace JonjubNet.Logging.Shared.Services
                 _logger.LogInformation("Nivel de log para operación {Operation} cambiado a: {Level}", operation, level);
                 OnConfigurationChanged(_currentConfiguration);
                 return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
             }
         }
 
@@ -275,7 +347,8 @@ namespace JonjubNet.Logging.Shared.Services
                 return false;
             }
 
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 var key = category ?? "GLOBAL";
                 var originalLevel = category != null && _currentConfiguration.Filters.CategoryLogLevels != null &&
@@ -307,11 +380,16 @@ namespace JonjubNet.Logging.Shared.Services
                     category ?? "GLOBAL", level, expiration);
                 return true;
             }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
         }
 
         public bool RemoveTemporaryOverride(string? category)
         {
-            lock (_lock)
+            _lock.EnterWriteLock();
+            try
             {
                 var key = category ?? "GLOBAL";
                 if (!_temporaryOverrides.TryRemove(key, out var overrideObj))
@@ -341,6 +419,10 @@ namespace JonjubNet.Logging.Shared.Services
 
                 _logger.LogInformation("Override temporal removido para {Category}", category ?? "GLOBAL");
                 return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
             }
         }
 
@@ -380,6 +462,7 @@ namespace JonjubNet.Logging.Shared.Services
         {
             _changeListener?.Dispose();
             _expirationTimer?.Dispose();
+            _lock.Dispose();
         }
     }
 }
