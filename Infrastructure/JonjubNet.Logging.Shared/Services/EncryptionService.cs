@@ -102,10 +102,13 @@ namespace JonjubNet.Logging.Shared.Services
 
         private byte[] EncryptKeyWithPassword(byte[] key, string password)
         {
-            using var deriveBytes = new Rfc2898DeriveBytes(password, Encoding.UTF8.GetBytes("JonjubNet.Logging.Salt"), 10000, HashAlgorithmName.SHA256);
+            var salt = Encoding.UTF8.GetBytes("JonjubNet.Logging.Salt");
+            var derivedKey = Rfc2898DeriveBytes.Pbkdf2(password, salt, 10000, HashAlgorithmName.SHA256, 32);
+            var derivedIV = Rfc2898DeriveBytes.Pbkdf2(password, salt, 10000, HashAlgorithmName.SHA256, 16);
+            
             using var aes = Aes.Create();
-            aes.Key = deriveBytes.GetBytes(32);
-            aes.IV = deriveBytes.GetBytes(16);
+            aes.Key = derivedKey;
+            aes.IV = derivedIV;
             aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
 
@@ -115,10 +118,13 @@ namespace JonjubNet.Logging.Shared.Services
 
         private byte[] DecryptKeyWithPassword(byte[] encryptedKey, string password)
         {
-            using var deriveBytes = new Rfc2898DeriveBytes(password, Encoding.UTF8.GetBytes("JonjubNet.Logging.Salt"), 10000, HashAlgorithmName.SHA256);
+            var salt = Encoding.UTF8.GetBytes("JonjubNet.Logging.Salt");
+            var derivedKey = Rfc2898DeriveBytes.Pbkdf2(password, salt, 10000, HashAlgorithmName.SHA256, 32);
+            var derivedIV = Rfc2898DeriveBytes.Pbkdf2(password, salt, 10000, HashAlgorithmName.SHA256, 16);
+            
             using var aes = Aes.Create();
-            aes.Key = deriveBytes.GetBytes(32);
-            aes.IV = deriveBytes.GetBytes(16);
+            aes.Key = derivedKey;
+            aes.IV = derivedIV;
             aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
 

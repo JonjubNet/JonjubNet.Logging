@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Security.Cryptography;
 
 namespace JonjubNet.Logging.Shared.Services.Security
 {
@@ -85,8 +86,12 @@ namespace JonjubNet.Logging.Shared.Services.Security
                 {
                     try
                     {
-                        var cert = new X509Certificate2(file);
-                        certificates.Add(cert);
+                        var certBytes = File.ReadAllBytes(file);
+                        var cert = X509CertificateLoader.LoadCertificate(certBytes);
+                        if (cert != null)
+                        {
+                            certificates.Add(cert);
+                        }
                     }
                     catch
                     {
@@ -106,11 +111,12 @@ namespace JonjubNet.Logging.Shared.Services.Security
         {
             try
             {
+                var certBytes = File.ReadAllBytes(path);
                 if (!string.IsNullOrEmpty(password))
                 {
-                    return new X509Certificate2(path, password);
+                    return X509CertificateLoader.LoadPkcs12(certBytes, password);
                 }
-                return new X509Certificate2(path);
+                return X509CertificateLoader.LoadCertificate(certBytes);
             }
             catch
             {

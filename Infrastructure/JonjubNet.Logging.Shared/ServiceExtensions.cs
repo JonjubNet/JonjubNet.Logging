@@ -241,7 +241,11 @@ namespace JonjubNet.Logging.Shared
 
             // Actualizar LoggingConfigurationManager para usar IAuditLoggingService
             // Necesitamos re-registrarlo con la dependencia de IAuditLoggingService
-            services.Remove(services.FirstOrDefault(s => s.ServiceType == typeof(ILoggingConfigurationManager)));
+            var existingConfigManager = services.FirstOrDefault(s => s.ServiceType == typeof(ILoggingConfigurationManager));
+            if (existingConfigManager != null)
+            {
+                services.Remove(existingConfigManager);
+            }
             services.AddSingleton<ILoggingConfigurationManager>(sp =>
             {
                 var optionsMonitor = sp.GetRequiredService<IOptionsMonitor<LoggingConfiguration>>();
@@ -445,7 +449,11 @@ namespace JonjubNet.Logging.Shared
             });
 
             // Actualizar LoggingConfigurationManager para usar IAuditLoggingService
-            services.Remove(services.FirstOrDefault(s => s.ServiceType == typeof(ILoggingConfigurationManager)));
+            var existingConfigManager2 = services.FirstOrDefault(s => s.ServiceType == typeof(ILoggingConfigurationManager));
+            if (existingConfigManager2 != null)
+            {
+                services.Remove(existingConfigManager2);
+            }
             services.AddSingleton<ILoggingConfigurationManager>(sp =>
             {
                 var optionsMonitor = sp.GetRequiredService<IOptionsMonitor<LoggingConfiguration>>();
