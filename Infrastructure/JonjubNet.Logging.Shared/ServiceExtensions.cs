@@ -61,8 +61,35 @@ namespace JonjubNet.Logging.Shared
             // ✅ PASO 3: Registrar servicios de Application (UseCases)
             // Ahora que ILoggingConfigurationManager está registrado, los UseCases pueden resolverlo
             System.Console.WriteLine("[DIAGNÓSTICO] Llamando AddApplicationServices()...");
-            services.AddApplicationServices();
-            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
+            
+            // Asegurar que el método de extensión esté disponible
+            // Llamar explícitamente al método de extensión del namespace Application
+            var applicationServices = JonjubNet.Logging.Application.ServiceExtensions.AddApplicationServices(services);
+            if (applicationServices == null)
+            {
+                throw new InvalidOperationException(
+                    "AddApplicationServices() retornó null. El ensamblado JonjubNet.Logging.Application no se está cargando correctamente.");
+            }
+            
+            // Validar que SendLogUseCase se registró correctamente
+            // Construir un ServiceProvider temporal para validar el registro
+            using (var tempServiceProvider = services.BuildServiceProvider())
+            {
+                // Intentar resolver SendLogUseCase desde un scope
+                using (var scope = tempServiceProvider.CreateScope())
+                {
+                    var sendLogUseCase = scope.ServiceProvider.GetService<JonjubNet.Logging.Application.UseCases.SendLogUseCase>();
+                    if (sendLogUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "SendLogUseCase no se registró correctamente después de llamar a AddApplicationServices(). " +
+                            "Verifique que el ensamblado JonjubNet.Logging.Application.dll esté incluido en el paquete NuGet.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO] ✅ SendLogUseCase validado - está registrado correctamente");
+                }
+            }
+            
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado y validado");
 
             // Registrar validadores de FluentValidation
             // Nota: Los validadores están en el namespace Shared.Configuration
@@ -286,8 +313,35 @@ namespace JonjubNet.Logging.Shared
             // ✅ PASO 3: Registrar servicios de Application (UseCases)
             // Ahora que ILoggingConfigurationManager está registrado, los UseCases pueden resolverlo
             System.Console.WriteLine("[DIAGNÓSTICO] Llamando AddApplicationServices()...");
-            services.AddApplicationServices();
-            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado");
+            
+            // Asegurar que el método de extensión esté disponible
+            // Llamar explícitamente al método de extensión del namespace Application
+            var applicationServices = JonjubNet.Logging.Application.ServiceExtensions.AddApplicationServices(services);
+            if (applicationServices == null)
+            {
+                throw new InvalidOperationException(
+                    "AddApplicationServices() retornó null. El ensamblado JonjubNet.Logging.Application no se está cargando correctamente.");
+            }
+            
+            // Validar que SendLogUseCase se registró correctamente
+            // Construir un ServiceProvider temporal para validar el registro
+            using (var tempServiceProvider = services.BuildServiceProvider())
+            {
+                // Intentar resolver SendLogUseCase desde un scope
+                using (var scope = tempServiceProvider.CreateScope())
+                {
+                    var sendLogUseCase = scope.ServiceProvider.GetService<JonjubNet.Logging.Application.UseCases.SendLogUseCase>();
+                    if (sendLogUseCase == null)
+                    {
+                        throw new InvalidOperationException(
+                            "SendLogUseCase no se registró correctamente después de llamar a AddApplicationServices(). " +
+                            "Verifique que el ensamblado JonjubNet.Logging.Application.dll esté incluido en el paquete NuGet.");
+                    }
+                    System.Console.WriteLine("[DIAGNÓSTICO] ✅ SendLogUseCase validado - está registrado correctamente");
+                }
+            }
+            
+            System.Console.WriteLine("[DIAGNÓSTICO] ✅ AddApplicationServices() completado y validado");
 
             // Registrar IHttpContextAccessor e IHttpContextProvider (condicional - solo si ASP.NET Core está disponible)
             // Usar conditional compilation en lugar de reflection para AOT-friendly
