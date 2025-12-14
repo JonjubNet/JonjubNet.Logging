@@ -77,7 +77,7 @@ Interfaces específicas y cohesivas, no interfaces genéricas y grandes.
 ## Flujo de Dependencias
 
 ```
-Presentation/JonjubNet.Logging
+presentation/JonjubNet.Logging
     ↓
 infrastructure/JonjubNet.Logging.Shared
     ↓

@@ -15,7 +15,7 @@ on:
 env:
   DOTNET_VERSION: '10.0.x'
   PACKAGE_NAME: 'JonjubNet.Logging'
-  PROJECT_PATH: 'presentation/JonjubNet.Logging/JonjubNet.Logging.csproj'
+  PROJECT_PATH: 'Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj'
   SOLUTION_PATH: 'JonjubNet.Logging.slnx'
 
 jobs:
@@ -87,17 +87,17 @@ jobs:
     - name: Restore dependencies
       # Restaurar todos los proyectos en orden
       run: |
-        dotnet restore core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj
-        dotnet restore core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj
-        dotnet restore infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj
+        dotnet restore Core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj
+        dotnet restore Core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj
+        dotnet restore Infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj
         dotnet restore ${{ env.PROJECT_PATH }}
 
     - name: Build
       # Construir todos los proyectos en orden de dependencias
       run: |
-        dotnet build core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj --configuration Release --no-restore
-        dotnet build core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj --configuration Release --no-restore
-        dotnet build infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj --configuration Release --no-restore
+        dotnet build Core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj --configuration Release --no-restore
+        dotnet build Core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj --configuration Release --no-restore
+        dotnet build Infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj --configuration Release --no-restore
         dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
 
     - name: Test

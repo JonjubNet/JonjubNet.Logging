@@ -92,7 +92,7 @@ if (-not $allFound) {
 
 # Paso 6: Actualizar versión en .csproj
 Write-Host "`n📋 Paso 6: Verificando versión en .csproj..." -ForegroundColor Yellow
-$csprojPath = Join-Path $rootPath "Presentation\JonjubNet.Logging\JonjubNet.Logging.csproj"
+$csprojPath = Join-Path $rootPath "presentation\JonjubNet.Logging\JonjubNet.Logging.csproj"
 if (Test-Path $csprojPath) {
     $csprojContent = Get-Content $csprojPath -Raw
     if ($csprojContent -match '<Version>(\d+\.\d+\.\d+)</Version>') {
@@ -107,7 +107,7 @@ if (Test-Path $csprojPath) {
 
 # Paso 7: Empaquetar
 Write-Host "`n📋 Paso 7: Empaquetando NuGet..." -ForegroundColor Yellow
-$packagePath = Join-Path $rootPath "Presentation\JonjubNet.Logging"
+$packagePath = Join-Path $rootPath "presentation\JonjubNet.Logging"
 Push-Location $packagePath
 
 dotnet pack --configuration $Configuration --no-build
@@ -122,7 +122,7 @@ Write-Host "   ✅ Empaquetado exitoso" -ForegroundColor Green
 
 # Paso 8: Verificar contenido del paquete
 Write-Host "`n📋 Paso 8: Verificando contenido del paquete..." -ForegroundColor Yellow
-$packageFile = Get-ChildItem -Path (Join-Path $rootPath "Presentation\JonjubNet.Logging\bin\$Configuration") -Filter "*.nupkg" | Where-Object { $_.Name -like "*$Version*" } | Select-Object -First 1
+$packageFile = Get-ChildItem -Path (Join-Path $rootPath "presentation\JonjubNet.Logging\bin\$Configuration") -Filter "*.nupkg" | Where-Object { $_.Name -like "*$Version*" } | Select-Object -First 1
 
 if ($packageFile) {
     Write-Host "   Paquete encontrado: $($packageFile.Name)" -ForegroundColor White
@@ -138,7 +138,7 @@ if ($packageFile) {
 } else {
     Write-Host "   ⚠️  No se encontró el paquete con versión $Version" -ForegroundColor Yellow
     Write-Host "   Buscando cualquier paquete .nupkg..." -ForegroundColor White
-    $anyPackage = Get-ChildItem -Path (Join-Path $rootPath "Presentation\JonjubNet.Logging\bin\$Configuration") -Filter "*.nupkg" | Select-Object -First 1
+    $anyPackage = Get-ChildItem -Path (Join-Path $rootPath "presentation\JonjubNet.Logging\bin\$Configuration") -Filter "*.nupkg" | Select-Object -First 1
     if ($anyPackage) {
         Write-Host "   Paquete encontrado: $($anyPackage.Name)" -ForegroundColor White
     } else {
