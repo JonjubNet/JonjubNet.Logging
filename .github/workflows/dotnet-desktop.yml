@@ -85,12 +85,20 @@ jobs:
         fi
 
     - name: Restore dependencies
-      # Restaurar el proyecto principal, que restaurará automáticamente sus dependencias
-      run: dotnet restore ${{ env.PROJECT_PATH }}
+      # Restaurar todos los proyectos en orden
+      run: |
+        dotnet restore core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj
+        dotnet restore core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj
+        dotnet restore infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj
+        dotnet restore ${{ env.PROJECT_PATH }}
 
     - name: Build
-      # Construir el proyecto principal, que compilará automáticamente todos los proyectos dependientes
-      run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+      # Construir todos los proyectos en orden de dependencias
+      run: |
+        dotnet build core/JonjubNet.Logging.Domain/JonjubNet.Logging.Domain.csproj --configuration Release --no-restore
+        dotnet build core/JonjubNet.Logging.Application/JonjubNet.Logging.Application.csproj --configuration Release --no-restore
+        dotnet build infrastructure/JonjubNet.Logging.Shared/JonjubNet.Logging.Shared.csproj --configuration Release --no-restore
+        dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
 
     - name: Test
       # Ejecutar tests si existen proyectos de test
