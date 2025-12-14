@@ -1,5 +1,7 @@
 using JonjubNet.Logging.Application;
+using JonjubNet.Logging.Application.Interfaces;
 using JonjubNet.Logging.Shared;
+using JonjubNet.Logging.Shared.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,7 +23,7 @@ namespace JonjubNet.Logging
             this IServiceCollection services,
             IConfiguration configuration)
         {
-            return AddStructuredLoggingInfrastructure<Shared.Services.DefaultCurrentUserService>(services, configuration);
+            return AddStructuredLoggingInfrastructure<DefaultCurrentUserService>(services, configuration);
         }
 
         /// <summary>
@@ -34,7 +36,7 @@ namespace JonjubNet.Logging
         public static IServiceCollection AddStructuredLoggingInfrastructure<TUserService>(
             this IServiceCollection services,
             IConfiguration configuration)
-            where TUserService : class, Application.Interfaces.ICurrentUserService
+            where TUserService : class, ICurrentUserService
         {
             // Registrar servicios de Application
             services.AddApplicationServices();
@@ -56,7 +58,7 @@ namespace JonjubNet.Logging
             this IServiceCollection services,
             IConfiguration configuration)
         {
-            return AddStructuredLoggingInfrastructureWithoutHost<Shared.Services.DefaultCurrentUserService>(services, configuration);
+            return AddStructuredLoggingInfrastructureWithoutHost<DefaultCurrentUserService>(services, configuration);
         }
 
         /// <summary>
@@ -70,7 +72,7 @@ namespace JonjubNet.Logging
         public static IServiceCollection AddStructuredLoggingInfrastructureWithoutHost<TUserService>(
             this IServiceCollection services,
             IConfiguration configuration)
-            where TUserService : class, Application.Interfaces.ICurrentUserService
+            where TUserService : class, ICurrentUserService
         {
             // Registrar servicios de Application
             services.AddApplicationServices();
