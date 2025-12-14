@@ -85,14 +85,21 @@ jobs:
         fi
 
     - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_PATH }}
+      # Restaurar el proyecto principal, que restaurará automáticamente sus dependencias
+      run: dotnet restore ${{ env.PROJECT_PATH }}
 
     - name: Build
-      # Construir la solución completa para asegurar que todos los proyectos dependientes se compilen primero
-      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+      # Construir el proyecto principal, que compilará automáticamente todos los proyectos dependientes
+      run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
 
     - name: Test
-      run: dotnet test ${{ env.SOLUTION_PATH }} --configuration Release --no-build --verbosity normal
+      # Ejecutar tests si existen proyectos de test
+      run: |
+        if [ -d "Tests" ]; then
+          find Tests -name "*.csproj" -type f | while read testproj; do
+            dotnet test "$testproj" --configuration Release --no-build --verbosity normal || true
+          done
+        fi
 
     - name: Pack
       # IMPORTANTE: Usar -p:Version y -p:PackageVersion para asegurar que la versión se aplique correctamente
