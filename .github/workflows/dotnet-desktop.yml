@@ -15,7 +15,7 @@ on:
 env:
   DOTNET_VERSION: '10.0.x'
   PACKAGE_NAME: 'JonjubNet.Logging'
-  PROJECT_PATH: 'Presentation/JonjubNet.Logging/JonjubNet.Logging.csproj'
+  PROJECT_PATH: 'presentation/JonjubNet.Logging/JonjubNet.Logging.csproj'
   SOLUTION_PATH: 'JonjubNet.Logging.slnx'
 
 jobs:
