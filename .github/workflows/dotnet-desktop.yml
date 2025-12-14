@@ -95,9 +95,9 @@ jobs:
       run: dotnet test ${{ env.PROJECT_PATH }} --configuration Release --no-build --verbosity normal
 
     - name: Pack
-      # IMPORTANTE: Usar -p:Version para asegurar que la versión se aplique correctamente
+      # IMPORTANTE: Usar -p:Version y -p:PackageVersion para asegurar que la versión se aplique correctamente
       # No usar --no-build para asegurar que todos los ensamblados estén disponibles
-      run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ./packages -p:Version=${{ steps.version.outputs.version }} --no-restore
+      run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ./packages -p:Version=${{ steps.version.outputs.version }} -p:PackageVersion=${{ steps.version.outputs.version }} --no-restore
 
     - name: Upload packages
       uses: actions/upload-artifact@v4
